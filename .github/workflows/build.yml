@@ -26,9 +26,19 @@ jobs:
       - name: Build extension bundle
         run: make pack
 
+      - name: Append commit hash to bundle name
+        id: bundle
+        run: |
+          short_sha="${GITHUB_SHA::7}"
+          bundle="dist/roompanel@friedjof.github.io.shell-extension.zip"
+          renamed_bundle="dist/roompanel@friedjof.github.io-${short_sha}.shell-extension.zip"
+          mv "${bundle}" "${renamed_bundle}"
+          echo "artifact_name=roompanel-shell-extension-${short_sha}" >> "${GITHUB_OUTPUT}"
+          echo "bundle_path=${renamed_bundle}" >> "${GITHUB_OUTPUT}"
+
       - name: Upload extension bundle
         uses: actions/upload-artifact@v4
         with:
-          name: roompanel-shell-extension
-          path: dist/*.zip
+          name: ${{ steps.bundle.outputs.artifact_name }}
+          path: ${{ steps.bundle.outputs.bundle_path }}
           if-no-files-found: error
