@@ -1,4 +1,5 @@
 .claude/
+dist/
 *.log
 *.swp
 *.zip

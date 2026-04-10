@@ -2,11 +2,14 @@ UUID      = roompanel@friedjof.github.io
 DEST      = $(HOME)/.local/share/gnome-shell/extensions/$(UUID)
 SRC       = $(UUID)
 LOG       = /tmp/roompanel-shell.log
+OUT_DIR   ?= dist
+SCHEMA    = schemas/org.gnome.shell.extensions.roompanel.gschema.xml
+ZIP       = $(OUT_DIR)/$(UUID).shell-extension.zip
 
 SCREEN_RES := $(shell xrandr 2>/dev/null | awk '/ primary/{match($$0,/[0-9]+x[0-9]+/); print substr($$0,RSTART,RLENGTH)}')
 MUTTER_SPECS ?= $(if $(SCREEN_RES),$(SCREEN_RES),1920x1080)
 
-.PHONY: install remove reinstall run log
+.PHONY: install remove reinstall run log pack
 
 install:
 	glib-compile-schemas $(SRC)/schemas/
@@ -20,6 +23,18 @@ remove:
 	@echo "Removed $(UUID)"
 
 reinstall: remove install
+
+pack:
+	mkdir -p $(OUT_DIR)
+	glib-compile-schemas $(SRC)/schemas/
+	gnome-extensions pack $(SRC) \
+		--out-dir $(OUT_DIR) \
+		--force \
+		--schema=$(SCHEMA) \
+		--extra-source=lib \
+		--extra-source=prefs \
+		--extra-source=ui
+	@echo "Packed $(ZIP)"
 
 # Launch a nested GNOME Shell session.
 # The extension is enabled *inside* the new D-Bus session by polling until
