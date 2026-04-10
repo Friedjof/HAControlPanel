@@ -92,6 +92,7 @@ class EntitySearchPopover extends Gtk.Popover {
     _init(onSelect) {
         super._init({ has_arrow: false });
         this._onSelect = onSelect;
+        this._domainFilter = null;
 
         const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 4,
             margin_top: 6, margin_bottom: 6, margin_start: 6, margin_end: 6 });
@@ -130,11 +131,23 @@ class EntitySearchPopover extends Gtk.Popover {
                 margin_start: 10, margin_end: 10 });
             b.append(new Gtk.Label({ label: row._entityName, xalign: 0, hexpand: true }));
             row.set_child(b);
+            row.tooltip_text = row._entityId;
             this._listBox.append(row);
         }
     }
 
+    setDomainFilter(domain) {
+        this._domainFilter = domain || null;
+        this._listBox.invalidate_filter();
+    }
+
     _filter(row) {
+        if (this._domainFilter) {
+            const domain = row._entityId?.split('.')[0] ?? '';
+            if (domain !== this._domainFilter)
+                return false;
+        }
+
         const q = this._search.text.toLowerCase();
         if (!q) return true;
         return (row._entityId?.toLowerCase() ?? '').includes(q) ||
@@ -405,7 +418,10 @@ class ButtonEditDialog extends Adw.Dialog {
         });
         this._entityPopover.set_parent(entitySearchBtn);
         if (entities?.length) this._entityPopover.setEntities(entities);
-        entitySearchBtn.connect('clicked', () => this._entityPopover.popup());
+        entitySearchBtn.connect('clicked', () => {
+            this._entityPopover.setDomainFilter(this._config.domain);
+            this._entityPopover.popup();
+        });
         this._entityRow.connect('changed', () => {
             this._config.entity_id = this._entityRow.text;
             const domain = this._entityRow.text.split('.')[0];
@@ -428,6 +444,7 @@ class ButtonEditDialog extends Adw.Dialog {
         this._domainDropdown.connect('notify::selected-item', () => {
             this._config.domain = getDropDownValue(this._domainDropdown);
             this._servicePopover?.setDomainFilter(this._config.domain);
+            this._entityPopover?.setDomainFilter(this._config.domain);
         });
 
         this._serviceRow = new Adw.EntryRow({
@@ -502,6 +519,7 @@ class ButtonEditDialog extends Adw.Dialog {
         setDropDownValue(this._domainDropdown, this._domainModel, domain);
         this._config.domain = getDropDownValue(this._domainDropdown);
         this._servicePopover?.setDomainFilter(this._config.domain);
+        this._entityPopover?.setDomainFilter(this._config.domain);
     }
 });
 
@@ -592,7 +610,8 @@ class ButtonsPage extends Adw.PreferencesPage {
         this.add(colorGroup);
 
         this._colorEntityRow = this._makeEntityRow(
-            'Entity ID', 'color-entity', settings);
+            'Entity ID', 'color-entity', settings,
+            () => this._colorServiceRow?.text.split('.')[0] || 'light');
         colorGroup.add(this._colorEntityRow);
 
         this._colorServiceRow = this._makeServiceRow(
@@ -616,7 +635,8 @@ class ButtonsPage extends Adw.PreferencesPage {
         this.add(sliderGroup);
 
         this._sliderEntityRow = this._makeEntityRow(
-            'Entity ID', 'slider-entity', settings);
+            'Entity ID', 'slider-entity', settings,
+            () => this._sliderServiceRow?.text.split('.')[0] || 'light');
         sliderGroup.add(this._sliderEntityRow);
 
         this._sliderServiceRow = this._makeServiceRow(
@@ -676,7 +696,7 @@ class ButtonsPage extends Adw.PreferencesPage {
 
     // ── Helper: entity row with search lupe ──────────────────────────
 
-    _makeEntityRow(title, settingKey, settings) {
+    _makeEntityRow(title, settingKey, settings, getDomain = null) {
         const row = new Adw.EntryRow({ title, text: settings.get_string(settingKey) });
 
         const btn = new Gtk.Button({ icon_name: 'system-search-symbolic',
@@ -690,7 +710,10 @@ class ButtonsPage extends Adw.PreferencesPage {
         popover.set_parent(btn);
         row._entityPopover = popover;
 
-        btn.connect('clicked', () => popover.popup());
+        btn.connect('clicked', () => {
+            popover.setDomainFilter(getDomain?.() ?? '');
+            popover.popup();
+        });
         row.connect('changed', () => settings.set_string(settingKey, row.text));
 
         return row;
