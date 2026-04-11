@@ -7,6 +7,7 @@ import { hexToRgb, loadColorHistory, pushColorToHistory, saveColorHistory } from
 import {
     entityMatchesDomain, buildColorPreviewStyle, darkenHex, formatEntityLabel,
 } from './menuHelpers.js';
+import { LiveValueSync } from './liveValueSync.js';
 
 /**
  * The color-picker section of the panel menu.
@@ -23,11 +24,10 @@ export class ColorSection {
     constructor(settings, haClient, getSuppressUntil, markUserCommand) {
         this._settings = settings;
         this._haClient = haClient;
-        this._getSuppressUntil = getSuppressUntil;
         this._markUserCommand = markUserCommand;
 
+        this._sync = new LiveValueSync(getSuppressUntil);
         this._colorSourceId = null;
-        this._colorSyncSourceId = null;
         this._copyResetSourceId = null;
         this._colorHistory = loadColorHistory();
         this._entityNames = {};
@@ -45,12 +45,9 @@ export class ColorSection {
         return this._menuItem;
     }
 
-    /** Cancel any pending GLib sync timer (called by panelMenu on markUserCommand). */
+    /** Cancel any pending sync timer (called by panelMenu on markUserCommand). */
     cancelPendingSync() {
-        if (this._colorSyncSourceId) {
-            GLib.source_remove(this._colorSyncSourceId);
-            this._colorSyncSourceId = null;
-        }
+        this._sync.cancelPending();
     }
 
     /**
@@ -100,9 +97,8 @@ export class ColorSection {
         if (this._updateColorValue(entityId, newState))
             this._refreshColorChipStyles();
 
-        const suppressed = Date.now() < this._getSuppressUntil();
-        if (suppressed) {
-            this._scheduleColorSyncAfterSuppression();
+        if (this._sync.isSuppressed()) {
+            this._sync.scheduleSync(() => this._syncColorFromSelectedTargets());
             return;
         }
 
@@ -118,14 +114,11 @@ export class ColorSection {
             GLib.source_remove(this._colorSourceId);
             this._colorSourceId = null;
         }
-        if (this._colorSyncSourceId) {
-            GLib.source_remove(this._colorSyncSourceId);
-            this._colorSyncSourceId = null;
-        }
         if (this._copyResetSourceId) {
             GLib.source_remove(this._copyResetSourceId);
             this._copyResetSourceId = null;
         }
+        this._sync.destroy();
     }
 
     // ── UI construction ──────────────────────────────────────────────────────
@@ -369,25 +362,7 @@ export class ColorSection {
         this._updateColorPreview(rgb);
     }
 
-    _scheduleColorSyncAfterSuppression() {
-        const remaining = Math.max(0, this._getSuppressUntil() - Date.now());
 
-        if (this._colorSyncSourceId) {
-            GLib.source_remove(this._colorSyncSourceId);
-            this._colorSyncSourceId = null;
-        }
-
-        if (remaining <= 0) {
-            this._syncColorFromSelectedTargets();
-            return;
-        }
-
-        this._colorSyncSourceId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, remaining + 25, () => {
-            this._colorSyncSourceId = null;
-            this._syncColorFromSelectedTargets();
-            return GLib.SOURCE_REMOVE;
-        });
-    }
 
     // ── Chip management ──────────────────────────────────────────────────────
 

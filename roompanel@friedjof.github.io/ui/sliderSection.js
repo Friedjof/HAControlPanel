@@ -4,6 +4,7 @@ import Clutter from 'gi://Clutter';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { DimmerSlider } from './dimmerSlider.js';
 import { entityMatchesDomain, formatEntityLabel, formatSliderValue } from './menuHelpers.js';
+import { LiveValueSync } from './liveValueSync.js';
 
 /**
  * The slider section of the panel menu.
@@ -20,11 +21,10 @@ export class SliderSection {
     constructor(settings, haClient, getSuppressUntil, markUserCommand) {
         this._settings = settings;
         this._haClient = haClient;
-        this._getSuppressUntil = getSuppressUntil;
         this._markUserCommand = markUserCommand;
 
+        this._sync = new LiveValueSync(getSuppressUntil);
         this._sliderSourceId = null;
-        this._sliderSyncSourceId = null;
         this._entityNames = {};
         this._sliderValues = {};
         this._settingsChangedId = null;
@@ -49,10 +49,7 @@ export class SliderSection {
 
     /** Cancel any pending GLib sync timer (called by panelMenu on markUserCommand). */
     cancelPendingSync() {
-        if (this._sliderSyncSourceId) {
-            GLib.source_remove(this._sliderSyncSourceId);
-            this._sliderSyncSourceId = null;
-        }
+        this._sync.cancelPending();
     }
 
     /** Fetch current HA state for all watched entities and seed the slider. */
@@ -100,13 +97,7 @@ export class SliderSection {
         if (this._updateSliderValue(sliderCfg, newState))
             this._rebuildSliderChips();
 
-        const suppressed = Date.now() < this._getSuppressUntil();
-        if (suppressed) {
-            this._scheduleSliderSyncAfterSuppression();
-            return;
-        }
-
-        this._syncSliderFromSelectedTargets();
+        this._sync.scheduleSync(() => this._syncSliderFromSelectedTargets());
     }
 
     destroy() {
@@ -118,10 +109,7 @@ export class SliderSection {
             GLib.source_remove(this._sliderSourceId);
             this._sliderSourceId = null;
         }
-        if (this._sliderSyncSourceId) {
-            GLib.source_remove(this._sliderSyncSourceId);
-            this._sliderSyncSourceId = null;
-        }
+        this._sync.destroy();
     }
 
     // ── UI construction ──────────────────────────────────────────────────────
@@ -266,26 +254,6 @@ export class SliderSection {
             return;
 
         this._slider.value = first.normalized;
-    }
-
-    _scheduleSliderSyncAfterSuppression() {
-        const remaining = Math.max(0, this._getSuppressUntil() - Date.now());
-
-        if (this._sliderSyncSourceId) {
-            GLib.source_remove(this._sliderSyncSourceId);
-            this._sliderSyncSourceId = null;
-        }
-
-        if (remaining <= 0) {
-            this._syncSliderFromSelectedTargets();
-            return;
-        }
-
-        this._sliderSyncSourceId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, remaining + 25, () => {
-            this._sliderSyncSourceId = null;
-            this._syncSliderFromSelectedTargets();
-            return GLib.SOURCE_REMOVE;
-        });
     }
 
     // ── Chip management ──────────────────────────────────────────────────────
