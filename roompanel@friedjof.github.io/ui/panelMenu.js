@@ -54,6 +54,7 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
         this._haClient = haClient;
         this._openPrefs = openPrefs ?? null;
         this._sliderSourceId = null;
+        this._sliderSyncSourceId = null;
         this._colorSourceId = null;
         this._copyResetSourceId = null;
         this._colorHistory = loadColorHistory();
@@ -419,6 +420,11 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
         if (sliderCfg && this._updateSliderValue(sliderCfg, new_state))
             this._rebuildSliderChips();
 
+        if (sliderCfg && Date.now() < this._suppressLiveUntil) {
+            this._scheduleSliderSyncAfterSuppression();
+            return;
+        }
+
         if (Date.now() < this._suppressLiveUntil) return;
 
         // Color: only sync when exactly 1 entity is targeted
@@ -443,6 +449,10 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
     /** Call before every user-initiated HA command to suppress echo-updates. */
     _markUserCommand() {
         this._suppressLiveUntil = Date.now() + 2000;
+        if (this._sliderSyncSourceId) {
+            GLib.source_remove(this._sliderSyncSourceId);
+            this._sliderSyncSourceId = null;
+        }
     }
 
     /**
@@ -575,16 +585,43 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
             const max = Number(cfg.max ?? 255);
             if (!Number.isFinite(raw) || !Number.isFinite(min) || !Number.isFinite(max) || max <= min)
                 return;
-            states.push({ raw, min, max });
+            states.push({
+                raw,
+                min,
+                max,
+                normalized: Math.max(0, Math.min(1, (raw - min) / (max - min))),
+            });
         }
 
         const first = states[0];
-        const sameRange = states.every(entry => entry.min === first.min && entry.max === first.max);
-        const sameValue = states.every(entry => entry.raw === first.raw);
-        if (!sameRange || !sameValue)
+        const tolerance = 0.0025;
+        const sameNormalizedValue = states.every(entry =>
+            Math.abs(entry.normalized - first.normalized) <= tolerance
+        );
+        if (!sameNormalizedValue)
             return;
 
-        this._slider.value = Math.max(0, Math.min(1, (first.raw - first.min) / (first.max - first.min)));
+        this._slider.value = first.normalized;
+    }
+
+    _scheduleSliderSyncAfterSuppression() {
+        const remaining = Math.max(0, this._suppressLiveUntil - Date.now());
+
+        if (this._sliderSyncSourceId) {
+            GLib.source_remove(this._sliderSyncSourceId);
+            this._sliderSyncSourceId = null;
+        }
+
+        if (remaining <= 0) {
+            this._syncSliderFromSelectedTargets();
+            return;
+        }
+
+        this._sliderSyncSourceId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, remaining + 25, () => {
+            this._sliderSyncSourceId = null;
+            this._syncSliderFromSelectedTargets();
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     _rebuildSliderChips() {
@@ -957,6 +994,10 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
         if (this._sliderSourceId) {
             GLib.source_remove(this._sliderSourceId);
             this._sliderSourceId = null;
+        }
+        if (this._sliderSyncSourceId) {
+            GLib.source_remove(this._sliderSyncSourceId);
+            this._sliderSyncSourceId = null;
         }
         if (this._colorSourceId) {
             GLib.source_remove(this._colorSourceId);
