@@ -209,3 +209,78 @@
   border-color: rgba(255, 255, 255, 0.45);
   color: rgba(255, 255, 255, 0.92);
 }
+
+.roompanel-sensors-grid {
+  spacing: 8px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.roompanel-sensor-row {
+  spacing: 8px;
+}
+
+.roompanel-sensor-tile {
+  spacing: 10px;
+  min-height: 68px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.roompanel-sensor-icon-wrap {
+  width: 28px;
+  height: 28px;
+  padding: 6px;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.roompanel-sensor-icon {
+  icon-size: 14px;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.roompanel-sensor-col {
+  spacing: 1px;
+}
+
+.roompanel-sensor-value-row {
+  spacing: 4px;
+}
+
+.roompanel-sensor-value {
+  font-size: 1.32em;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.roompanel-sensor-unit {
+  color: rgba(255, 255, 255, 0.62);
+  padding-top: 3px;
+}
+
+.roompanel-sensor-name {
+  font-size: 0.82em;
+  color: rgba(255, 255, 255, 0.56);
+}
+
+.roompanel-sensor-trend-top,
+.roompanel-sensor-gauge-top {
+  spacing: 10px;
+}
+
+.roompanel-sensor-trend-name {
+  padding-top: 2px;
+}
+
+.roompanel-sparkline {
+  margin-top: 8px;
+  margin-bottom: 1px;
+}
+
+.roompanel-gauge-bar {
+  margin-top: 10px;
+  margin-bottom: 2px;
+}

@@ -33,3 +33,17 @@ export function readSliderConfigs(settings) {
         return [];
     }
 }
+
+/**
+ * Read and parse the `sensor-widgets-config` GSettings key.
+ * @param {Gio.Settings} settings
+ * @returns {object[]}
+ */
+export function readSensorWidgets(settings) {
+    try {
+        const parsed = JSON.parse(settings.get_string('sensor-widgets-config') || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}

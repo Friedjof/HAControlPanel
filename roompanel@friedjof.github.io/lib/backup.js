@@ -1,5 +1,5 @@
 import GLib from 'gi://GLib';
-import { readButtonsConfig, readSliderConfigs } from './configAdapters.js';
+import { readButtonsConfig, readSliderConfigs, readSensorWidgets } from './configAdapters.js';
 
 export function getDefaultBackupPath() {
     return GLib.build_filenamev([
@@ -32,6 +32,7 @@ export function settingsToObject(settings) {
             },
         },
         buttons: readButtonsConfig(settings),
+        sensors: readSensorWidgets(settings),
         backup: {
             auto: settings.get_boolean('auto-yaml-backup'),
             path: getResolvedBackupPath(settings),

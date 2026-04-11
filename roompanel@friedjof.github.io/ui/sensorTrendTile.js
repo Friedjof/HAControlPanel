@@ -1,0 +1,162 @@
+import Cairo from 'cairo';
+import GObject from 'gi://GObject';
+import St from 'gi://St';
+import Clutter from 'gi://Clutter';
+import { getStateValue, getNumericValue, getUnit, getIcon, getName } from './sensorHelpers.js';
+
+const MAX_SAMPLES = 30;
+
+const Sparkline = GObject.registerClass(
+class Sparkline extends St.DrawingArea {
+    _init() {
+        super._init({
+            style_class: 'roompanel-sparkline',
+            height: 28,
+            x_expand: true,
+        });
+        this._samples = [];
+        this.connect('repaint', () => this._repaint());
+    }
+
+    setSamples(samples) {
+        this._samples = samples;
+        this.queue_repaint();
+    }
+
+    _repaint() {
+        const cr = this.get_context();
+        const [w, h] = this.get_surface_size();
+
+        cr.setOperator(Cairo.Operator.CLEAR);
+        cr.paint();
+        cr.setOperator(Cairo.Operator.OVER);
+
+        if (!w || !h || this._samples.length < 2) {
+            cr.$dispose();
+            return;
+        }
+
+        const vals = this._samples;
+        const minV = Math.min(...vals);
+        const maxV = Math.max(...vals);
+        const range = maxV - minV || 1;
+        const n = vals.length;
+        const pad = 3;
+
+        // Line
+        cr.setSourceRGBA(1, 1, 1, 0.50);
+        cr.setLineWidth(1.5);
+        cr.setLineJoin(Cairo.LineJoin.ROUND);
+        cr.setLineCap(Cairo.LineCap.ROUND);
+
+        for (let i = 0; i < n; i++) {
+            const x = pad + (i / (n - 1)) * (w - pad * 2);
+            const y = h - pad - ((vals[i] - minV) / range) * (h - pad * 2);
+            if (i === 0) cr.moveTo(x, y);
+            else         cr.lineTo(x, y);
+        }
+        cr.stroke();
+
+        // Dot at the latest value
+        const lx = w - pad;
+        const ly = h - pad - ((vals[n - 1] - minV) / range) * (h - pad * 2);
+        cr.arc(lx, ly, 2.5, 0, 2 * Math.PI);
+        cr.setSourceRGBA(1, 1, 1, 0.85);
+        cr.fill();
+
+        cr.$dispose();
+    }
+});
+
+/**
+ * Trend tile: icon | name (left) + value unit (right) + sparkline below.
+ * Always full-width (trend tiles need horizontal space for the sparkline).
+ */
+export class SensorTrendTile {
+    constructor(config) {
+        this._config  = config;
+        this._samples = [];
+        this._build();
+    }
+
+    getActor() { return this._actor; }
+
+    /** Push a new numeric sample into the sparkline buffer. */
+    pushSample(value) {
+        if (!Number.isFinite(value)) return;
+        this._samples.push(value);
+        if (this._samples.length > MAX_SAMPLES)
+            this._samples.shift();
+        this._sparkline.setSamples([...this._samples]);
+    }
+
+    _build() {
+        this._actor = new St.BoxLayout({
+            vertical: true,
+            x_expand: true,
+            style_class: 'roompanel-sensor-tile',
+        });
+
+        // Top row: icon | name (fills) | value unit
+        const topRow = new St.BoxLayout({
+            vertical: false,
+            x_expand: true,
+            style_class: 'roompanel-sensor-trend-top',
+        });
+        this._actor.add_child(topRow);
+
+        const iconWrap = new St.Bin({
+            style_class: 'roompanel-sensor-icon-wrap',
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        this._iconActor = new St.Icon({
+            icon_name: 'utilities-system-monitor-symbolic',
+            style_class: 'roompanel-sensor-icon',
+        });
+        iconWrap.set_child(this._iconActor);
+        topRow.add_child(iconWrap);
+
+        this._nameLabel = new St.Label({
+            text: '',
+            style_class: 'roompanel-sensor-name roompanel-sensor-trend-name',
+            x_expand: true,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        topRow.add_child(this._nameLabel);
+
+        const valueRow = new St.BoxLayout({ vertical: false });
+        topRow.add_child(valueRow);
+
+        this._valueLabel = new St.Label({
+            text: '—',
+            style_class: 'roompanel-sensor-value',
+            y_align: Clutter.ActorAlign.BASELINE,
+        });
+        valueRow.add_child(this._valueLabel);
+
+        this._unitLabel = new St.Label({
+            text: '',
+            style_class: 'roompanel-sensor-unit',
+            y_align: Clutter.ActorAlign.BASELINE,
+        });
+        valueRow.add_child(this._unitLabel);
+
+        // Sparkline
+        this._sparkline = new Sparkline();
+        this._actor.add_child(this._sparkline);
+    }
+
+    update(state) {
+        const v = getStateValue(this._config, state);
+        this._valueLabel.text = v !== null ? String(v) : '—';
+        this._unitLabel.text  = getUnit(this._config, state);
+        this._nameLabel.text  = getName(this._config, state);
+        this._iconActor.icon_name = getIcon(this._config, state);
+
+        const numeric = getNumericValue(this._config, state);
+        if (numeric !== null)
+            this.pushSample(numeric);
+    }
+
+    destroy() {}
+}

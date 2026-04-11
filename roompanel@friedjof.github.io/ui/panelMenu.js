@@ -5,6 +5,7 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { ActionButton } from './actionButton.js';
 import { ColorSection } from './colorSection.js';
 import { SliderSection } from './sliderSection.js';
+import { SensorSection } from './sensorSection.js';
 import { readButtonsConfig } from '../lib/configAdapters.js';
 
 /**
@@ -34,6 +35,8 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
             () => this._suppressLiveUntil,
             () => this._markUserCommand()
         );
+
+        this._sensorSection = new SensorSection(settings, haClient);
 
         this._buildUI();
         this._connectSettings();
@@ -80,6 +83,10 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
         this.addMenuItem(this._sliderSection.getMenuItem());
         this.addMenuItem(this._sliderSection.getSeparator());
 
+        // ── Sensor section ────────────────────────────────────────────
+        this.addMenuItem(this._sensorSection.getSeparator());
+        this.addMenuItem(this._sensorSection.getMenuItem());
+
         // ── Action Buttons ────────────────────────────────────────────
         this._buttonsItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
         this.addMenuItem(this._buttonsItem);
@@ -111,12 +118,14 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
         this._haClient.connectLive(data => this._onLiveStateChanged(data));
         void this._colorSection.hydrateFromHA();
         void this._sliderSection.hydrateFromHA();
+        void this._sensorSection.hydrateFromHA();
     }
 
     _onLiveStateChanged({ entity_id, new_state }) {
         if (!new_state) return;
         this._colorSection.onStateChanged(entity_id, new_state);
         this._sliderSection.onStateChanged(entity_id, new_state);
+        this._sensorSection.onStateChanged(entity_id, new_state);
     }
 
     /** Called before every user-initiated HA command to suppress echo-updates. */
@@ -180,6 +189,7 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
 
         this._colorSection.destroy();
         this._sliderSection.destroy();
+        this._sensorSection.destroy();
 
         super.destroy();
     }

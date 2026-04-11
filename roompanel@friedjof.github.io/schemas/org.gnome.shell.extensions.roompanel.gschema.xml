@@ -67,6 +67,13 @@
       <description>JSON array with button configurations (label, icon, entity_id, domain, service, service_data)</description>
     </key>
 
+    <!-- Sensor Widgets -->
+    <key name="sensor-widgets-config" type="s">
+      <default>"[]"</default>
+      <summary>Sensor Widget Configurations</summary>
+      <description>JSON array of sensor widget configs: [{entity_id, widget_type, attribute, unit_override, icon, min, max, severity, span}]</description>
+    </key>
+
     <!-- YAML Backup -->
     <key name="auto-yaml-backup" type="b">
       <default>false</default>
