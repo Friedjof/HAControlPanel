@@ -872,7 +872,7 @@ class ButtonsPage extends Adw.PreferencesPage {
             const row = new ButtonListRow(
                 this._configs[i], i,
                 idx => this._openEditDialog(idx, this._configs[idx]),
-                idx => this._deleteButton(idx)
+                idx => this._confirmDeleteButton(idx)
             );
             this._buttonsGroup.add(row);
             this._buttonListRows.push(row);
@@ -901,6 +901,29 @@ class ButtonsPage extends Adw.PreferencesPage {
             }
         );
         dialog.present(this.get_root());
+    }
+
+    _confirmDeleteButton(index) {
+        const config = this._configs[index];
+        if (!config)
+            return;
+
+        const label = String(config.label ?? '').trim() || `Button ${index + 1}`;
+        const dialog = new Adw.MessageDialog({
+            transient_for: this.get_root(),
+            heading: 'Delete Button?',
+            body: `Remove "${label}" from the panel?`,
+        });
+        dialog.add_response('cancel', 'Cancel');
+        dialog.add_response('delete', 'Delete');
+        dialog.set_response_appearance('delete', Adw.ResponseAppearance.DESTRUCTIVE);
+        dialog.set_default_response('cancel');
+        dialog.set_close_response('cancel');
+        dialog.connect('response', (_dialog, response) => {
+            if (response === 'delete')
+                this._deleteButton(index);
+        });
+        dialog.present();
     }
 
     _deleteButton(index) {
