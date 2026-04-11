@@ -83,15 +83,22 @@ export class SensorSection {
         const configs = readSensorWidgets(this._settings)
             .filter(c => c.entity_id);
 
-        const visible = configs.length > 0;
-        this._menuItem.visible = visible;
-        this._separator.visible = visible;
-        if (!visible) return;
-
         const box = new St.BoxLayout({ vertical: true, x_expand: true });
         box.add_style_class_name('roompanel-menu');
         box.add_style_class_name('roompanel-sensors-grid');
         this._menuItem.add_child(box);
+
+        if (configs.length === 0) {
+            box.add_child(new St.Label({
+                text: 'No sensor widgets configured',
+                style_class: 'roompanel-sensor-empty-title',
+            }));
+            box.add_child(new St.Label({
+                text: 'Open Settings → Sensors to add read-only sensor tiles.',
+                style_class: 'roompanel-sensor-empty-subtitle',
+            }));
+            return;
+        }
 
         // Layout: pair half-span tiles side-by-side; full-span and trend get own row
         let pending = null; // a half-span {config, tile} waiting for a partner

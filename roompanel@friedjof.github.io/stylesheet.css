@@ -29,6 +29,44 @@
   color: rgba(255, 255, 255, 0.38);
 }
 
+.roompanel-header-row {
+  spacing: 8px;
+}
+
+.roompanel-page-switcher {
+  spacing: 6px;
+}
+
+.roompanel-page-button {
+  min-width: 28px;
+  min-height: 28px;
+  padding: 4px;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.roompanel-page-button:hover {
+  background-color: rgba(255, 255, 255, 0.10);
+}
+
+.roompanel-page-button-active {
+  background-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.roompanel-page-button-icon {
+  icon-size: 12px;
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.roompanel-page-label {
+  min-width: 54px;
+  font-size: 0.78em;
+  color: rgba(255, 255, 255, 0.70);
+  text-align: center;
+}
+
 .roompanel-menu {
   width: 340px;
   min-width: 340px;
@@ -283,4 +321,16 @@
 .roompanel-gauge-bar {
   margin-top: 10px;
   margin-bottom: 2px;
+}
+
+.roompanel-sensor-empty-title {
+  font-size: 0.95em;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.80);
+  padding: 6px 4px 0 4px;
+}
+
+.roompanel-sensor-empty-subtitle {
+  color: rgba(255, 255, 255, 0.52);
+  padding: 0 4px 6px 4px;
 }

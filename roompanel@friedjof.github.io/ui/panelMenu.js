@@ -6,7 +6,7 @@ import { ActionButton } from './actionButton.js';
 import { ColorSection } from './colorSection.js';
 import { SliderSection } from './sliderSection.js';
 import { SensorSection } from './sensorSection.js';
-import { readButtonsConfig } from '../lib/configAdapters.js';
+import { readButtonsConfig, readSliderConfigs } from '../lib/configAdapters.js';
 
 /**
  * The dropdown menu content.
@@ -19,6 +19,7 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
         this._settings = settings;
         this._haClient = haClient;
         this._openPrefs = openPrefs ?? null;
+        this._currentPage = 'actions';
 
         // Echo-suppression: after a user command we ignore HA state echoes
         // for this many ms so the UI does not jump back to the stale value.
@@ -51,6 +52,13 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
         this._settingsItem.add_style_class_name('roompanel-settings-item');
         this.addMenuItem(this._settingsItem);
 
+        const headerRow = new St.BoxLayout({
+            vertical: false,
+            x_expand: true,
+            style_class: 'roompanel-header-row',
+        });
+        this._settingsItem.add_child(headerRow);
+
         const settingsBtn = new St.Button({
             style_class: 'roompanel-settings-btn',
             can_focus: true,
@@ -75,7 +83,37 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
         });
         settingsBtnInner.add_child(this._domainLabel);
 
-        this._settingsItem.add_child(settingsBtn);
+        headerRow.add_child(settingsBtn);
+
+        const spacer = new St.Widget({ x_expand: true });
+        headerRow.add_child(spacer);
+
+        this._pageSwitcher = new St.BoxLayout({
+            vertical: false,
+            style_class: 'roompanel-page-switcher',
+            x_align: Clutter.ActorAlign.END,
+        });
+        headerRow.add_child(this._pageSwitcher);
+
+        this._actionsPageBtn = this._createPageButton(
+            'go-previous-symbolic',
+            () => this._setPage('actions')
+        );
+        this._pageSwitcher.add_child(this._actionsPageBtn);
+
+        this._pageLabel = new St.Label({
+            text: 'Actions',
+            style_class: 'roompanel-page-label',
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        this._pageSwitcher.add_child(this._pageLabel);
+
+        this._sensorsPageBtn = this._createPageButton(
+            'go-next-symbolic',
+            () => this._setPage('sensors')
+        );
+        this._pageSwitcher.add_child(this._sensorsPageBtn);
+
         this._updateDomainLabel();
 
         // ── Color + Slider sections ───────────────────────────────────
@@ -100,6 +138,23 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
         this._buttonsItem.add_child(this._buttonsBox);
 
         this._rebuildButtons();
+        this._setPage('actions');
+    }
+
+    _createPageButton(iconName, onClick) {
+        const icon = new St.Icon({
+            icon_name: iconName,
+            style_class: 'roompanel-page-button-icon',
+        });
+
+        const button = new St.Button({
+            style_class: 'roompanel-page-button',
+            can_focus: true,
+            reactive: true,
+            child: icon,
+        });
+        button.connect('clicked', onClick);
+        return button;
     }
 
     _connectSettings() {
@@ -109,6 +164,14 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
 
             if (key === 'ha-url')
                 this._updateDomainLabel();
+
+            if ([
+                'color-entities',
+                'slider-entities-config',
+                'sensor-widgets-config',
+            ].includes(key)) {
+                this._applyPageVisibility();
+            }
         });
     }
 
@@ -133,6 +196,43 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
         this._suppressLiveUntil = Date.now() + 2000;
         this._colorSection.cancelPendingSync();
         this._sliderSection.cancelPendingSync();
+    }
+
+    // ── Page switching ───────────────────────────────────────────────────────
+
+    _setPage(page) {
+        this._currentPage = page === 'sensors' ? 'sensors' : 'actions';
+        this._updatePageSwitcher();
+        this._applyPageVisibility();
+    }
+
+    _updatePageSwitcher() {
+        const isActions = this._currentPage === 'actions';
+        this._pageLabel.text = isActions ? 'Actions' : 'Sensors';
+
+        if (isActions) {
+            this._actionsPageBtn.add_style_class_name('roompanel-page-button-active');
+            this._sensorsPageBtn.remove_style_class_name('roompanel-page-button-active');
+        } else {
+            this._sensorsPageBtn.add_style_class_name('roompanel-page-button-active');
+            this._actionsPageBtn.remove_style_class_name('roompanel-page-button-active');
+        }
+    }
+
+    _applyPageVisibility() {
+        const showActions = this._currentPage === 'actions';
+        const showSensors = this._currentPage === 'sensors';
+
+        const hasColor = this._settings.get_strv('color-entities').some(Boolean);
+        const hasSlider = readSliderConfigs(this._settings).some(cfg => cfg.entity_id);
+
+        this._colorSection.getMenuItem().visible = showActions && hasColor;
+        this._sliderSection.getMenuItem().visible = showActions && hasSlider;
+        this._sliderSection.getSeparator().visible = showActions && hasSlider;
+        this._buttonsItem.visible = showActions;
+
+        this._sensorSection.getMenuItem().visible = showSensors;
+        this._sensorSection.getSeparator().visible = showSensors;
     }
 
     // ── Action buttons ───────────────────────────────────────────────────────
