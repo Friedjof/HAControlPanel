@@ -66,6 +66,11 @@ function getDropDownValue(dropdown) {
 }
 
 function setDropDownValue(dropdown, model, value) {
+    if (!value) {
+        dropdown.set_selected(Gtk.INVALID_LIST_POSITION);
+        return false;
+    }
+
     const count = model.get_n_items();
     for (let i = 0; i < count; i++) {
         const item = model.get_item(i);
@@ -75,8 +80,7 @@ function setDropDownValue(dropdown, model, value) {
         }
     }
 
-    if (count > 0)
-        dropdown.set_selected(0);
+    dropdown.set_selected(Gtk.INVALID_LIST_POSITION);
 
     return false;
 }
@@ -735,7 +739,7 @@ class ButtonsPage extends Adw.PreferencesPage {
             tooltip_text: 'Add button',
         });
         this._buttonsGroup.set_header_suffix(addBtn);
-        addBtn.connect('clicked', () => this._openEditDialog(null, null));
+        addBtn.connect('clicked', () => void this._openEditDialog(null, null));
 
         this._rebuildList();
         this.connect('map', () => void this.refreshFromHA());
@@ -873,7 +877,13 @@ class ButtonsPage extends Adw.PreferencesPage {
         }
     }
 
-    _openEditDialog(index, config) {
+    async _openEditDialog(index, config) {
+        if (this._loadTask) {
+            await this._loadTask;
+        } else if (this._entities.length === 0 && this._services.length === 0) {
+            await this.refreshFromHA();
+        }
+
         const isNew = index === null;
         const dialog = new ButtonEditDialog(
             config ?? {},
