@@ -8,6 +8,7 @@ import {
     entityMatchesDomain, buildColorPreviewStyle, darkenHex, formatEntityLabel,
 } from './menuHelpers.js';
 import { LiveValueSync } from './liveValueSync.js';
+import { ColorHistoryView } from './colorHistoryView.js';
 
 /**
  * The color-picker section of the panel menu.
@@ -119,6 +120,7 @@ export class ColorSection {
             this._copyResetSourceId = null;
         }
         this._sync.destroy();
+        this._historyView.destroy();
     }
 
     // ── UI construction ──────────────────────────────────────────────────────
@@ -249,12 +251,8 @@ export class ColorSection {
             style_class: 'roompanel-history-title',
         }));
 
-        this._historyBox = new St.BoxLayout({
-            vertical: true,
-            x_expand: true,
-            style_class: 'roompanel-color-history',
-        });
-        colorRightCol.add_child(this._historyBox);
+        this._historyView = new ColorHistoryView(hex => this._applyHistoryColor(hex));
+        colorRightCol.add_child(this._historyView.getActor());
 
         // Chip selector (shown only when > 1 entity)
         this._chipRow = new St.BoxLayout({
@@ -524,42 +522,7 @@ export class ColorSection {
     // ── Color history ────────────────────────────────────────────────────────
 
     _rebuildColorHistory() {
-        const children = this._historyBox.get_children();
-        for (const child of children)
-            this._historyBox.remove_child(child);
-
-        if (this._colorHistory.length === 0) {
-            this._historyBox.add_child(new St.Label({
-                text: 'Recent colors appear here',
-                style_class: 'roompanel-history-placeholder',
-                x_expand: true,
-                y_align: Clutter.ActorAlign.CENTER,
-            }));
-            return;
-        }
-
-        for (let i = 0; i < this._colorHistory.length; i += 2) {
-            const row = new St.BoxLayout({
-                vertical: false,
-                x_expand: true,
-                style_class: 'roompanel-history-row',
-            });
-
-            for (let j = i; j < Math.min(i + 2, this._colorHistory.length); j++) {
-                const hex = this._colorHistory[j];
-                const swatch = new St.Button({
-                    style_class: 'button roompanel-history-swatch',
-                    x_expand: true,
-                    can_focus: true,
-                    reactive: true,
-                });
-                swatch.set_style(`background-color: ${hex};`);
-                swatch.connect('clicked', () => this._applyHistoryColor(hex));
-                row.add_child(swatch);
-            }
-
-            this._historyBox.add_child(row);
-        }
+        this._historyView.rebuild(this._colorHistory);
     }
 
     _rememberColor(rgb) {
