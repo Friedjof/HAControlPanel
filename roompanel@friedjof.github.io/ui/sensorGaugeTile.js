@@ -122,14 +122,14 @@ export class SensorGaugeTile {
         this._valueLabel = new St.Label({
             text: '—',
             style_class: 'roompanel-sensor-value',
-            y_align: Clutter.ActorAlign.BASELINE,
+            y_align: Clutter.ActorAlign.END,
         });
         valueRow.add_child(this._valueLabel);
 
         this._unitLabel = new St.Label({
             text: '',
             style_class: 'roompanel-sensor-unit',
-            y_align: Clutter.ActorAlign.BASELINE,
+            y_align: Clutter.ActorAlign.END,
         });
         valueRow.add_child(this._unitLabel);
 
