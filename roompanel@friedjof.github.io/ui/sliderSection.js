@@ -5,6 +5,7 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { DimmerSlider } from './dimmerSlider.js';
 import { entityMatchesDomain, formatEntityLabel, formatSliderValue } from './menuHelpers.js';
 import { LiveValueSync } from './liveValueSync.js';
+import { readSliderConfigs } from '../lib/configAdapters.js';
 
 /**
  * The slider section of the panel menu.
@@ -175,10 +176,7 @@ export class SliderSection {
     // ── Slider config helpers ────────────────────────────────────────────────
 
     _getSliderConfigs() {
-        try {
-            const parsed = JSON.parse(this._settings.get_string('slider-entities-config') || '[]');
-            return Array.isArray(parsed) ? parsed : [];
-        } catch { return []; }
+        return readSliderConfigs(this._settings);
     }
 
     _getTargetSliderConfigs() {

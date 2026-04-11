@@ -1,4 +1,5 @@
 import GLib from 'gi://GLib';
+import { readButtonsConfig, readSliderConfigs } from './configAdapters.js';
 
 export function getDefaultBackupPath() {
     return GLib.build_filenamev([
@@ -14,15 +15,6 @@ export function getResolvedBackupPath(settings) {
     return configuredPath || getDefaultBackupPath();
 }
 
-export function readButtonsConfig(settings) {
-    try {
-        const parsed = JSON.parse(settings.get_string('buttons-config') || '[]');
-        return Array.isArray(parsed) ? parsed : [];
-    } catch {
-        return [];
-    }
-}
-
 export function settingsToObject(settings) {
     return {
         connection: {
@@ -36,7 +28,7 @@ export function settingsToObject(settings) {
                 attribute: settings.get_string('color-attribute'),
             },
             slider: {
-                entities: JSON.parse(settings.get_string('slider-entities-config') || '[]'),
+                entities: readSliderConfigs(settings),
             },
         },
         buttons: readButtonsConfig(settings),

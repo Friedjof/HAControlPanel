@@ -5,6 +5,7 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { ActionButton } from './actionButton.js';
 import { ColorSection } from './colorSection.js';
 import { SliderSection } from './sliderSection.js';
+import { readButtonsConfig } from '../lib/configAdapters.js';
 
 /**
  * The dropdown menu content.
@@ -132,12 +133,7 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
         for (const child of children)
             this._buttonsBox.remove_child(child);
 
-        let configs = [];
-        try {
-            configs = JSON.parse(this._settings.get_string('buttons-config'));
-        } catch {
-            configs = [];
-        }
+        const configs = readButtonsConfig(this._settings);
 
         const count = this._settings.get_int('button-count');
         const slice = configs.slice(0, count);

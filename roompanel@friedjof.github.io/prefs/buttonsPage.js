@@ -3,6 +3,7 @@ import Gtk from 'gi://Gtk';
 import GObject from 'gi://GObject';
 import { haDataStore } from './haDataStore.js';
 import { escapeMarkup, getEntityDomain, findReplacementEntityId } from './utils.js';
+import { readButtonsConfig, readSliderConfigs } from '../lib/configAdapters.js';
 import { EntitySearchPopover } from './popovers/entitySearch.js';
 import { ServiceSearchPopover } from './popovers/serviceSearch.js';
 import { ButtonListRow, ButtonEditDialog } from './dialogs/buttonEdit.js';
@@ -273,10 +274,7 @@ class ButtonsPage extends Adw.PreferencesPage {
     // ── Slider config helpers ─────────────────────────────────────────
 
     _loadSliderConfigs(settings) {
-        try {
-            const parsed = JSON.parse(settings.get_string('slider-entities-config') || '[]');
-            return Array.isArray(parsed) ? parsed : [];
-        } catch { return []; }
+        return readSliderConfigs(settings);
     }
 
     _rebuildSliderEntityRows(settings) {
@@ -582,8 +580,7 @@ class ButtonsPage extends Adw.PreferencesPage {
     }
 
     _loadConfigs() {
-        try { return JSON.parse(this._settings.get_string('buttons-config')); }
-        catch { return []; }
+        return readButtonsConfig(this._settings);
     }
 
     _saveConfigs() {
