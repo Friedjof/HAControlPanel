@@ -167,8 +167,10 @@ export class SensorSection {
 
     _connectSettings() {
         this._settingsChangedId = this._settings.connect('changed', (_s, key) => {
-            if (key === 'sensor-widgets-config')
+            if (key === 'sensor-widgets-config') {
                 this._buildGrid();
+                void this.hydrateFromHA();
+            }
         });
     }
 }

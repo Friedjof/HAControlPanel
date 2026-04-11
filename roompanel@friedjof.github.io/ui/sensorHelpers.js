@@ -41,7 +41,8 @@ export function getStateValue(config, state) {
     if (!state) return null;
     if (config.attribute) {
         const v = state.attributes?.[config.attribute];
-        return v !== undefined && v !== null ? v : null;
+        if (v !== undefined && v !== null)
+            return v;
     }
     return state.state !== undefined ? state.state : null;
 }
