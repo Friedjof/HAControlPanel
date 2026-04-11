@@ -83,7 +83,7 @@ export const ColorWheel = GObject.registerClass({
             ...params,
         });
 
-        this._padding = 8;
+        this._padding = 3;
         this._dragging = false;
         this._selectionDirty = false;
         this._rgb = [255, 255, 255];

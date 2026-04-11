@@ -43,30 +43,15 @@
     </key>
 
     <!-- Slider -->
-    <key name="slider-entity" type="s">
-      <default>""</default>
-      <summary>Slider Entity ID</summary>
-      <description>Home Assistant entity to control with the slider</description>
+    <key name="slider-entities-config" type="s">
+      <default>"[]"</default>
+      <summary>Slider Entities Configuration</summary>
+      <description>JSON array of slider entity configs: [{entity_id, service, attribute, min, max}]</description>
     </key>
-    <key name="slider-service" type="s">
-      <default>"light.turn_on"</default>
-      <summary>Slider Service</summary>
-      <description>Service to call on slider change, e.g. light.turn_on</description>
-    </key>
-    <key name="slider-attribute" type="s">
-      <default>"brightness"</default>
-      <summary>Slider Service Attribute</summary>
-      <description>Service data attribute for the slider value, e.g. brightness</description>
-    </key>
-    <key name="slider-min" type="d">
-      <default>0.0</default>
-      <summary>Slider Minimum Value</summary>
-      <description>Minimum value sent to Home Assistant</description>
-    </key>
-    <key name="slider-max" type="d">
-      <default>255.0</default>
-      <summary>Slider Maximum Value</summary>
-      <description>Maximum value sent to Home Assistant</description>
+    <key name="slider-selected" type="as">
+      <default>@as []</default>
+      <summary>Slider Selected Entities</summary>
+      <description>Currently selected entities for slider control (empty = all selected)</description>
     </key>
 
     <!-- Action Buttons -->

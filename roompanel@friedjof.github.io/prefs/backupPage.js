@@ -23,11 +23,16 @@ function applyObjectToSettings(obj, settings) {
     if (color.attribute !== undefined) settings.set_string('color-attribute', String(color.attribute));
 
     const slider = obj.panel?.slider ?? {};
-    if (slider.entity !== undefined) settings.set_string('slider-entity', String(slider.entity));
-    if (slider.service !== undefined) settings.set_string('slider-service', String(slider.service));
-    if (slider.attribute !== undefined) settings.set_string('slider-attribute', String(slider.attribute));
-    if (slider.min !== undefined) settings.set_double('slider-min', Number(slider.min));
-    if (slider.max !== undefined) settings.set_double('slider-max', Number(slider.max));
+    if (Array.isArray(slider.entities))
+        settings.set_string('slider-entities-config', JSON.stringify(slider.entities));
+    else if (slider.entity !== undefined)
+        settings.set_string('slider-entities-config', JSON.stringify([{
+            entity_id: String(slider.entity),
+            service:   String(slider.service   ?? 'light.turn_on'),
+            attribute: String(slider.attribute ?? 'brightness'),
+            min: Number(slider.min ?? 0),
+            max: Number(slider.max ?? 255),
+        }].filter(c => c.entity_id)));
 
     if (Array.isArray(obj.buttons))
         settings.set_string('buttons-config', JSON.stringify(obj.buttons));

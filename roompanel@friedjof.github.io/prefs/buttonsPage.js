@@ -597,7 +597,7 @@ class ButtonListRow extends Adw.ActionRow {
         const editBtn = new Gtk.Button({ icon_name: 'document-edit-symbolic',
             css_classes: ['flat'], valign: Gtk.Align.CENTER, tooltip_text: 'Edit' });
         const deleteBtn = new Gtk.Button({ icon_name: 'edit-delete-symbolic',
-            css_classes: ['flat', 'destructive-action'], valign: Gtk.Align.CENTER,
+            css_classes: ['destructive-action'], valign: Gtk.Align.CENTER,
             tooltip_text: 'Delete' });
 
         this.add_suffix(editBtn);
@@ -702,54 +702,33 @@ class ButtonsPage extends Adw.PreferencesPage {
         });
 
         // ── Slider Group ──────────────────────────────────────────────
-        const sliderGroup = new Adw.PreferencesGroup({
+        this._sliderEntitiesGroup = new Adw.PreferencesGroup({
             title: 'Slider',
-            description: 'Entity and service called when the slider is moved',
+            description: 'Up to 4 entities controlled together; each can have its own service and range',
         });
-        this.add(sliderGroup);
+        this.add(this._sliderEntitiesGroup);
 
-        this._sliderEntityRow = this._makeEntityRow(
-            'Entity ID', 'slider-entity', settings,
-            () => this._sliderServiceRow?.text.split('.')[0] || 'light');
-        sliderGroup.add(this._sliderEntityRow);
-
-        this._sliderServiceRow = this._makeServiceRow(
-            'Service (domain.service)', 'slider-service', settings,
-            () => this._sliderEntityRow.text.split('.')[0]);
-        sliderGroup.add(this._sliderServiceRow);
-
-        this._sliderAttributeRow = new Adw.EntryRow({
-            title: 'Service Data Attribute',
-            text: settings.get_string('slider-attribute'),
+        this._sliderEntityRows = [];
+        this._sliderEntityEntryRows = [];
+        this._sliderServiceEntryRows = [];
+        const addSliderEntityBtn = new Gtk.Button({
+            icon_name: 'list-add-symbolic',
+            css_classes: ['flat', 'circular'],
+            valign: Gtk.Align.CENTER,
+            tooltip_text: 'Add entity (max 4)',
         });
-        sliderGroup.add(this._sliderAttributeRow);
-        this._sliderAttributeRow.connect('changed', () =>
-            settings.set_string('slider-attribute', this._sliderAttributeRow.text));
+        this._sliderEntitiesGroup.set_header_suffix(addSliderEntityBtn);
+        this._addSliderEntityBtn = addSliderEntityBtn;
 
-        const sliderRangeRow = new Adw.ActionRow({ title: 'Range (min / max)' });
-        const sliderMinSpin = new Gtk.SpinButton({
-            adjustment: new Gtk.Adjustment({
-                lower: -10000, upper: 10000, step_increment: 1,
-                value: settings.get_double('slider-min'),
-            }),
-            digits: 0, valign: Gtk.Align.CENTER,
-        });
-        const sliderMaxSpin = new Gtk.SpinButton({
-            adjustment: new Gtk.Adjustment({
-                lower: -10000, upper: 10000, step_increment: 1,
-                value: settings.get_double('slider-max'),
-            }),
-            digits: 0, valign: Gtk.Align.CENTER,
-        });
-        sliderRangeRow.add_suffix(sliderMinSpin);
-        sliderRangeRow.add_suffix(new Gtk.Label({ label: '–', valign: Gtk.Align.CENTER }));
-        sliderRangeRow.add_suffix(sliderMaxSpin);
-        sliderGroup.add(sliderRangeRow);
+        this._rebuildSliderEntityRows(settings);
 
-        sliderMinSpin.connect('value-changed', () =>
-            settings.set_double('slider-min', sliderMinSpin.value));
-        sliderMaxSpin.connect('value-changed', () =>
-            settings.set_double('slider-max', sliderMaxSpin.value));
+        addSliderEntityBtn.connect('clicked', () => {
+            let configs = this._loadSliderConfigs(settings);
+            if (configs.length >= 4) return;
+            configs.push({ entity_id: '', service: 'light.turn_on', attribute: 'brightness', min: 0, max: 255 });
+            settings.set_string('slider-entities-config', JSON.stringify(configs));
+            this._rebuildSliderEntityRows(settings);
+        });
 
         // ── Action Buttons Group ──────────────────────────────────────
         this._buttonsGroup = new Adw.PreferencesGroup({ title: 'Action Buttons' });
@@ -841,62 +820,69 @@ class ButtonsPage extends Adw.PreferencesPage {
 
         for (let i = 0; i < entities.length; i++) {
             const idx = i;
-            const row = new Adw.EntryRow({
-                title: `Entity ${i + 1}`,
-                text: entities[i],
+            const entityId = entities[i];
+            const friendly = this._entities?.find(e => e.entity_id === entityId)?.attributes?.friendly_name;
+
+            const expander = new Adw.ExpanderRow({
+                title: friendly || entityId || `Entity ${i + 1}`,
+                subtitle: entityId || '',
             });
 
+            // Entity ID row with search
+            const entityRow = new Adw.EntryRow({ title: 'Entity ID', text: entityId });
             const searchBtn = new Gtk.Button({
                 icon_name: 'system-search-symbolic',
-                valign: Gtk.Align.CENTER,
-                css_classes: ['flat'],
-                tooltip_text: 'Browse entities',
+                valign: Gtk.Align.CENTER, css_classes: ['flat'], tooltip_text: 'Browse entities',
             });
-            row.add_suffix(searchBtn);
+            entityRow.add_suffix(searchBtn);
 
-            const removeBtn = new Gtk.Button({
-                icon_name: 'list-remove-symbolic',
-                css_classes: ['flat', 'destructive-action'],
-                valign: Gtk.Align.CENTER,
-                tooltip_text: 'Remove entity',
-            });
-            row.add_suffix(removeBtn);
-
-            const popover = new EntitySearchPopover(entityId => {
-                row.text = entityId;
+            const popover = new EntitySearchPopover(picked => {
+                entityRow.text = picked;
                 const current = settings.get_strv('color-entities');
-                current[idx] = entityId;
+                current[idx] = picked;
                 settings.set_strv('color-entities', current);
+                const pickedFriendly = this._entities?.find(e => e.entity_id === picked)?.attributes?.friendly_name;
+                expander.title = pickedFriendly || picked || `Entity ${idx + 1}`;
+                expander.subtitle = picked;
             });
             popover.set_parent(searchBtn);
-            row._entityPopover = popover;
+            expander._entityPopover = popover;
 
             searchBtn.connect('clicked', () => {
                 const domain = this._colorServiceRow?.text.split('.')[0] || 'light';
                 popover.setDomainFilter(domain);
                 popover.popup();
             });
-
-            row.connect('changed', () => {
+            entityRow.connect('changed', () => {
                 const current = settings.get_strv('color-entities');
                 if (idx < current.length) {
-                    current[idx] = row.text;
+                    current[idx] = entityRow.text;
                     settings.set_strv('color-entities', current);
+                    expander.subtitle = entityRow.text;
                 }
             });
+            expander.add_row(entityRow);
 
+            // Remove row
+            const removeRow = new Adw.ActionRow({ title: 'Remove this entity' });
+            const removeBtn = new Gtk.Button({
+                label: 'Remove',
+                css_classes: ['destructive-action'],
+                valign: Gtk.Align.CENTER,
+            });
+            removeRow.add_suffix(removeBtn);
             removeBtn.connect('clicked', () => {
                 const current = settings.get_strv('color-entities');
                 current.splice(idx, 1);
-                const selected = settings.get_strv('color-selected')
-                    .filter(e => current.includes(e));
+                const selected = settings.get_strv('color-selected').filter(e => current.includes(e));
                 settings.set_strv('color-selected', selected);
                 settings.set_strv('color-entities', current);
                 this._rebuildColorEntityRows(settings);
             });
+            expander.add_row(removeRow);
 
-            this._colorEntitiesGroup.add(row);
-            this._colorEntityRows.push(row);
+            this._colorEntitiesGroup.add(expander);
+            this._colorEntityRows.push(expander);
         }
 
         this._addColorEntityBtn.sensitive = entities.length < 4;
@@ -906,19 +892,200 @@ class ButtonsPage extends Adw.PreferencesPage {
             this._distributeEntities();
     }
 
+    // ── Slider config helpers ─────────────────────────────────────────
+
+    _loadSliderConfigs(settings) {
+        try {
+            const parsed = JSON.parse(settings.get_string('slider-entities-config') || '[]');
+            return Array.isArray(parsed) ? parsed : [];
+        } catch { return []; }
+    }
+
+    _rebuildSliderEntityRows(settings) {
+        for (const row of this._sliderEntityRows)
+            this._sliderEntitiesGroup.remove(row);
+        this._sliderEntityRows = [];
+        this._sliderEntityEntryRows = [];
+        this._sliderServiceEntryRows = [];
+
+        const configs = this._loadSliderConfigs(settings);
+
+        const saveConfigs = () =>
+            settings.set_string('slider-entities-config', JSON.stringify(configs));
+
+        if (configs.length === 0) {
+            const placeholder = new Adw.ActionRow({
+                title: 'No entities configured',
+                subtitle: 'Click + to add a slider entity',
+                sensitive: false,
+            });
+            this._sliderEntitiesGroup.add(placeholder);
+            this._sliderEntityRows.push(placeholder);
+        }
+
+        for (let i = 0; i < configs.length; i++) {
+            const idx = i;
+            const cfg = configs[i];
+
+            const friendlyInit = this._entities?.find(e => e.entity_id === cfg.entity_id)?.attributes?.friendly_name;
+            const expander = new Adw.ExpanderRow({
+                title: friendlyInit || cfg.entity_id || `Entity ${i + 1}`,
+                subtitle: cfg.service || '',
+            });
+
+
+            // Entity row with search
+            const entityRow = new Adw.EntryRow({ title: 'Entity ID', text: cfg.entity_id || '' });
+            const searchBtn = new Gtk.Button({
+                icon_name: 'system-search-symbolic',
+                valign: Gtk.Align.CENTER, css_classes: ['flat'], tooltip_text: 'Browse entities',
+            });
+            entityRow.add_suffix(searchBtn);
+
+            const entityPopover = new EntitySearchPopover(entityId => {
+                entityRow.text = entityId;
+                configs[idx].entity_id = entityId;
+                const friendly = this._entities?.find(e => e.entity_id === entityId)?.attributes?.friendly_name;
+                expander.title = friendly || entityId || `Entity ${idx + 1}`;
+                saveConfigs();
+            });
+            entityPopover.set_parent(searchBtn);
+            entityRow._entityPopover = entityPopover;
+
+            searchBtn.connect('clicked', () => {
+                const domain = (configs[idx].service || '').split('.')[0] || '';
+                entityPopover.setDomainFilter(domain);
+                entityPopover.popup();
+            });
+            entityRow.connect('changed', () => {
+                configs[idx].entity_id = entityRow.text;
+                expander.title = entityRow.text || `Entity ${idx + 1}`;
+                saveConfigs();
+            });
+            expander.add_row(entityRow);
+            this._sliderEntityEntryRows.push(entityRow);
+
+            // Service row with search
+            const serviceRow = new Adw.EntryRow({
+                title: 'Service (domain.service)', text: cfg.service || 'light.turn_on',
+            });
+            const serviceSrcBtn = new Gtk.Button({
+                icon_name: 'system-search-symbolic',
+                valign: Gtk.Align.CENTER, css_classes: ['flat'], tooltip_text: 'Browse services',
+            });
+            serviceRow.add_suffix(serviceSrcBtn);
+
+            const servicePopover = new ServiceSearchPopover((domain, service) => {
+                serviceRow.text = `${domain}.${service}`;
+                configs[idx].service = `${domain}.${service}`;
+                expander.subtitle = `${domain}.${service}`;
+                saveConfigs();
+            });
+            servicePopover.setFallbackServices();
+            servicePopover.set_parent(serviceSrcBtn);
+            serviceRow._servicePopover = servicePopover;
+
+            serviceSrcBtn.connect('clicked', () => {
+                const domain = (configs[idx].entity_id || '').split('.')[0] || '';
+                servicePopover.setDomainFilter(domain);
+                servicePopover.popup();
+            });
+            serviceRow.connect('changed', () => {
+                configs[idx].service = serviceRow.text;
+                expander.subtitle = serviceRow.text;
+                saveConfigs();
+            });
+            expander.add_row(serviceRow);
+            this._sliderServiceEntryRows.push(serviceRow);
+
+            // Attribute row
+            const attrRow = new Adw.EntryRow({
+                title: 'Service Data Attribute', text: cfg.attribute || 'brightness',
+            });
+            attrRow.connect('changed', () => { configs[idx].attribute = attrRow.text; saveConfigs(); });
+            expander.add_row(attrRow);
+
+            // Min / Max row
+            const rangeRow = new Adw.ActionRow({ title: 'Range (min / max)' });
+            const minSpin = new Gtk.SpinButton({
+                adjustment: new Gtk.Adjustment({
+                    lower: -10000, upper: 10000, step_increment: 1, value: Number(cfg.min ?? 0),
+                }),
+                digits: 0, valign: Gtk.Align.CENTER,
+            });
+            const maxSpin = new Gtk.SpinButton({
+                adjustment: new Gtk.Adjustment({
+                    lower: -10000, upper: 10000, step_increment: 1, value: Number(cfg.max ?? 255),
+                }),
+                digits: 0, valign: Gtk.Align.CENTER,
+            });
+            rangeRow.add_suffix(minSpin);
+            rangeRow.add_suffix(new Gtk.Label({ label: '–', valign: Gtk.Align.CENTER }));
+            rangeRow.add_suffix(maxSpin);
+            minSpin.connect('value-changed', () => { configs[idx].min = minSpin.value; saveConfigs(); });
+            maxSpin.connect('value-changed', () => { configs[idx].max = maxSpin.value; saveConfigs(); });
+            expander.add_row(rangeRow);
+
+            // Remove row at the bottom of the expander
+            const removeRow = new Adw.ActionRow({ title: 'Remove this entity' });
+            const removeBtn = new Gtk.Button({
+                label: 'Remove',
+                css_classes: ['destructive-action'],
+                valign: Gtk.Align.CENTER,
+            });
+            removeRow.add_suffix(removeBtn);
+            removeBtn.connect('clicked', () => {
+                configs.splice(idx, 1);
+                const sel = settings.get_strv('slider-selected')
+                    .filter(e => configs.some(c => c.entity_id === e));
+                settings.set_strv('slider-selected', sel);
+                saveConfigs();
+                this._rebuildSliderEntityRows(settings);
+            });
+            expander.add_row(removeRow);
+
+            this._sliderEntitiesGroup.add(expander);
+            this._sliderEntityRows.push(expander);
+        }
+
+        this._addSliderEntityBtn.sensitive = configs.length < 4;
+
+        if (this._entities?.length > 0) this._distributeEntities();
+        if (this._services?.length > 0) this._distributeServices();
+    }
+
     // ── Update popovers with fresh HA data ───────────────────────────
 
     _distributeEntities() {
-        for (const row of (this._colorEntityRows || []))
+        // Color entities: popover lives on expander._entityPopover
+        for (const row of (this._colorEntityRows || [])) {
             row._entityPopover?.setEntities(this._entities);
-        this._sliderEntityRow._entityPopover?.setEntities(this._entities);
+            // Update title/subtitle with friendly name
+            const entityId = row.subtitle;
+            if (!entityId) continue;
+            const friendly = this._entities.find(e => e.entity_id === entityId)?.attributes?.friendly_name;
+            if (friendly) row.title = friendly;
+        }
+
+        // Slider entities
+        for (const row of (this._sliderEntityEntryRows || []))
+            row._entityPopover?.setEntities(this._entities);
+
+        const configs = this._loadSliderConfigs(this._settings);
+        for (let i = 0; i < configs.length && i < (this._sliderEntityRows?.length ?? 0); i++) {
+            const entityId = configs[i].entity_id;
+            if (!entityId) continue;
+            const friendly = this._entities.find(e => e.entity_id === entityId)?.attributes?.friendly_name;
+            if (friendly) this._sliderEntityRows[i].title = friendly;
+        }
     }
 
     _distributeServices() {
         const hasSvc = this._services.length > 0;
         if (hasSvc) {
             this._colorServiceRow._servicePopover?.setServices(this._services);
-            this._sliderServiceRow._servicePopover?.setServices(this._services);
+            for (const row of (this._sliderServiceEntryRows || []))
+                row._servicePopover?.setServices(this._services);
         }
     }
 
@@ -957,7 +1124,6 @@ class ButtonsPage extends Adw.PreferencesPage {
 
     _repairLoadedConfigurations() {
         let repairs = 0;
-        repairs += this._repairPanelEntity('slider-entity', 'slider-service', this._sliderEntityRow);
         repairs += this._repairButtonConfigs();
 
         if (repairs > 0)

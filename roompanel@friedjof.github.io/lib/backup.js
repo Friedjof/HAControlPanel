@@ -36,11 +36,7 @@ export function settingsToObject(settings) {
                 attribute: settings.get_string('color-attribute'),
             },
             slider: {
-                entity: settings.get_string('slider-entity'),
-                service: settings.get_string('slider-service'),
-                attribute: settings.get_string('slider-attribute'),
-                min: settings.get_double('slider-min'),
-                max: settings.get_double('slider-max'),
+                entities: JSON.parse(settings.get_string('slider-entities-config') || '[]'),
             },
         },
         buttons: readButtonsConfig(settings),

@@ -259,6 +259,13 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
         this._slider = new DimmerSlider();
         sliderBox.add_child(this._slider);
 
+        this._sliderChipRow = new St.BoxLayout({
+            vertical: false,
+            x_expand: true,
+            style_class: 'roompanel-chip-row',
+        });
+        sliderBox.add_child(this._sliderChipRow);
+
         // value-changed only fires from user interaction (not from .value setter)
         this._slider.connect('value-changed', () => {
             if (this._sliderSourceId) {
@@ -297,7 +304,7 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
             if (key === 'buttons-config' || key === 'button-count')
                 this._rebuildButtons();
 
-            if (key === 'color-entities' || key === 'slider-entity') {
+            if (key === 'color-entities' || key === 'slider-entities-config') {
                 this._syncSectionVisibility();
                 this._hydrateInitialState();
             }
@@ -307,8 +314,10 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
                 this._rebuildChips();
             }
 
-            if (key === 'slider-entity')
+            if (key === 'slider-entities-config' || key === 'slider-selected') {
                 this._updateSliderLabel();
+                this._rebuildSliderChips();
+            }
 
             if (key === 'ha-url')
                 this._updateDomainLabel();
@@ -317,6 +326,7 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
         this._syncSectionVisibility();
         this._updateColorEntityLabel();
         this._updateSliderLabel();
+        this._rebuildSliderChips();
     }
 
     // ── Live sync ────────────────────────────────────────────────────────────
@@ -332,35 +342,39 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
      * Called on startup and whenever the watched entities change.
      */
     async _hydrateInitialState() {
-        const all = this._settings.get_strv('color-entities').filter(Boolean);
-        const liveEntity = this._getLiveSyncEntity();
-        let chipsNeedRebuild = false;
+        let colorChipsNeedRebuild = false;
+        let sliderChipsNeedRebuild = false;
 
-        for (const entityId of all) {
+        const colorLive = this._getLiveSyncEntity();
+        for (const entityId of this._settings.get_strv('color-entities').filter(Boolean)) {
             try {
                 const state = await this._haClient.getState(entityId);
                 const name = state?.attributes?.friendly_name;
                 if (name && this._entityNames[entityId] !== name) {
                     this._entityNames[entityId] = name;
-                    chipsNeedRebuild = true;
+                    colorChipsNeedRebuild = true;
                 }
-                if (entityId === liveEntity)
+                if (entityId === colorLive)
                     this._applyColorState(state);
-            } catch { /* entity not found or no connection yet */ }
+            } catch { /* no connection yet */ }
         }
 
-        if (chipsNeedRebuild) {
-            this._rebuildChips();
-            this._updateColorEntityLabel();
-        }
-
-        const sliderEntity = this._settings.get_string('slider-entity').trim();
-        if (sliderEntity) {
+        const sliderLiveCfg = this._getLiveSyncSliderConfig();
+        for (const cfg of this._getSliderConfigs().filter(c => c.entity_id)) {
             try {
-                const state = await this._haClient.getState(sliderEntity);
-                this._applySliderState(state);
-            } catch { /* entity not found or no connection yet */ }
+                const state = await this._haClient.getState(cfg.entity_id);
+                const name = state?.attributes?.friendly_name;
+                if (name && this._entityNames[cfg.entity_id] !== name) {
+                    this._entityNames[cfg.entity_id] = name;
+                    sliderChipsNeedRebuild = true;
+                }
+                if (sliderLiveCfg && cfg.entity_id === sliderLiveCfg.entity_id)
+                    this._applySliderState(state, sliderLiveCfg);
+            } catch { /* no connection yet */ }
         }
+
+        if (colorChipsNeedRebuild) { this._rebuildChips(); this._updateColorEntityLabel(); }
+        if (sliderChipsNeedRebuild) { this._rebuildSliderChips(); this._updateSliderLabel(); }
     }
 
     /**
@@ -370,33 +384,33 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
     _onLiveStateChanged({ entity_id, new_state }) {
         if (!new_state) return;
 
-        const sliderEntity = this._settings.get_string('slider-entity').trim();
-
-        if (entity_id === sliderEntity) {
-            const suppressed = Date.now() < this._suppressLiveUntil;
-            console.log(`[RoomPanel] slider live event: ${entity_id}, suppressed=${suppressed}`);
+        // Cache friendly name; update chips/labels if it changed
+        const friendlyName = new_state?.attributes?.friendly_name;
+        if (friendlyName && this._entityNames[entity_id] !== friendlyName) {
+            this._entityNames[entity_id] = friendlyName;
+            const colorAll = this._settings.get_strv('color-entities').filter(Boolean);
+            if (colorAll.includes(entity_id)) {
+                this._rebuildChips();
+                this._updateColorEntityLabel();
+            }
+            const sliderIds = this._getSliderConfigs().map(c => c.entity_id);
+            if (sliderIds.includes(entity_id)) {
+                this._rebuildSliderChips();
+                this._updateSliderLabel();
+            }
         }
 
         if (Date.now() < this._suppressLiveUntil) return;
 
-        // Cache friendly name if available
-        const friendlyName = new_state?.attributes?.friendly_name;
-        if (friendlyName && this._entityNames[entity_id] !== friendlyName) {
-            this._entityNames[entity_id] = friendlyName;
-            const all = this._settings.get_strv('color-entities').filter(Boolean);
-            if (all.includes(entity_id)) {
-                this._rebuildChips();
-                this._updateColorEntityLabel();
-            }
-        }
-
         // Color: only sync when exactly 1 entity is targeted
-        const liveEntity = this._getLiveSyncEntity();
-        if (liveEntity && entity_id === liveEntity)
+        const colorLive = this._getLiveSyncEntity();
+        if (colorLive && entity_id === colorLive)
             this._applyColorState(new_state);
 
-        if (entity_id === sliderEntity)
-            this._applySliderState(new_state);
+        // Slider: only sync when exactly 1 entity is targeted
+        const sliderLiveCfg = this._getLiveSyncSliderConfig();
+        if (sliderLiveCfg && entity_id === sliderLiveCfg.entity_id)
+            this._applySliderState(new_state, sliderLiveCfg);
     }
 
     /** Push a fresh HA color state into the wheel + preview. */
@@ -409,31 +423,16 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
         this._updateColorPreview(clamped);
     }
 
-    /** Push a fresh HA slider state into the Slider widget. */
-    _applySliderState(state) {
-        const attribute = this._settings.get_string('slider-attribute').trim();
-        if (!attribute || !state?.attributes) {
-            console.log(`[RoomPanel] applySlider: skipped — attr='${attribute}', hasAttrs=${!!state?.attributes}`);
-            return;
-        }
-
-        const raw = state.attributes[attribute];
-        if (raw === undefined || raw === null) {
-            console.log(`[RoomPanel] applySlider: attr '${attribute}' not in state (available: ${Object.keys(state.attributes ?? {}).join(', ')})`);
-            return;
-        }
-
-        const min = this._settings.get_double('slider-min');
-        const max = this._settings.get_double('slider-max');
-        if (max <= min) {
-            console.log(`[RoomPanel] applySlider: invalid range min=${min} max=${max}`);
-            return;
-        }
-
-        const normalized = Math.max(0, Math.min(1, (Number(raw) - min) / (max - min)));
-        console.log(`[RoomPanel] applySlider: attr=${attribute} raw=${raw} min=${min} max=${max} normalized=${normalized}`);
+    /** Push a fresh HA slider state into the Slider widget using the entity's config. */
+    _applySliderState(state, cfg) {
+        if (!cfg?.attribute || !state?.attributes) return;
+        const raw = state.attributes[cfg.attribute];
+        if (raw === undefined || raw === null) return;
+        const min = Number(cfg.min ?? 0);
+        const max = Number(cfg.max ?? 255);
+        if (max <= min) return;
         // Setter never emits value-changed, so no feedback loop possible
-        this._slider.value = normalized;
+        this._slider.value = Math.max(0, Math.min(1, (Number(raw) - min) / (max - min)));
     }
 
     /** Call before every user-initiated HA command to suppress echo-updates. */
@@ -506,9 +505,76 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
         this._settings.set_strv('color-selected', next);
     }
 
+    // ── Slider chip helpers ──────────────────────────────────────────────────
+
+    _getSliderConfigs() {
+        try {
+            const parsed = JSON.parse(this._settings.get_string('slider-entities-config') || '[]');
+            return Array.isArray(parsed) ? parsed : [];
+        } catch { return []; }
+    }
+
+    _getTargetSliderConfigs() {
+        const all = this._getSliderConfigs().filter(c => c.entity_id);
+        const selected = this._settings.get_strv('slider-selected')
+            .filter(id => all.some(c => c.entity_id === id));
+        return selected.length > 0 ? all.filter(c => selected.includes(c.entity_id)) : all;
+    }
+
+    /** Config of the single entity to use for live-sync, or null when ambiguous. */
+    _getLiveSyncSliderConfig() {
+        const targets = this._getTargetSliderConfigs();
+        return targets.length === 1 ? targets[0] : null;
+    }
+
+    _rebuildSliderChips() {
+        const children = this._sliderChipRow.get_children();
+        for (const child of children)
+            this._sliderChipRow.remove_child(child);
+
+        const all = this._getSliderConfigs().filter(c => c.entity_id);
+        const selected = this._settings.get_strv('slider-selected')
+            .filter(id => all.some(c => c.entity_id === id));
+
+        this._sliderChipRow.visible = all.length > 1;
+        if (all.length <= 1) return;
+
+        for (const cfg of all) {
+            const entityId = cfg.entity_id;
+            const isActive = selected.length === 0 || selected.includes(entityId);
+            const chip = new St.Button({
+                style_class: 'roompanel-chip' + (isActive ? ' roompanel-chip-active' : ''),
+                can_focus: true,
+                reactive: true,
+                x_expand: true,
+            });
+            chip.set_child(new St.Label({
+                text: this._entityNames[entityId] ?? formatEntityLabel(entityId),
+                y_align: Clutter.ActorAlign.CENTER,
+                x_align: Clutter.ActorAlign.CENTER,
+            }));
+            chip.connect('clicked', () => this._toggleSliderChip(entityId));
+            this._sliderChipRow.add_child(chip);
+        }
+    }
+
+    _toggleSliderChip(entityId) {
+        const all = this._getSliderConfigs().filter(c => c.entity_id).map(c => c.entity_id);
+        let selected = this._settings.get_strv('slider-selected').filter(id => all.includes(id));
+
+        if (selected.length === 0) selected = [...all];
+        const wasSelected = selected.includes(entityId);
+        let next = wasSelected
+            ? selected.filter(e => e !== entityId)
+            : [...selected, entityId];
+        if (next.length === 0) next = [...all];
+        if (next.length === all.length) next = [];
+        this._settings.set_strv('slider-selected', next);
+    }
+
     _syncSectionVisibility() {
         const showColor = this._settings.get_strv('color-entities').some(Boolean);
-        const showSlider = this._settings.get_string('slider-entity').trim() !== '';
+        const showSlider = this._getSliderConfigs().some(c => c.entity_id);
 
         this._colorItem.visible = showColor;
         this._sliderItem.visible = showSlider;
@@ -581,9 +647,13 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
     }
 
     _updateSliderLabel() {
-        const entity = this._settings.get_string('slider-entity').trim();
-        const name = entity ? formatEntityLabel(entity) : 'Value';
-        this._sliderLabel.text = name;
+        const targets = this._getTargetSliderConfigs();
+        if (targets.length === 0)
+            this._sliderLabel.text = 'Value';
+        else if (targets.length === 1)
+            this._sliderLabel.text = this._entityNames[targets[0].entity_id] ?? formatEntityLabel(targets[0].entity_id);
+        else
+            this._sliderLabel.text = `${targets.length} entities`;
     }
 
     _copyCurrentColor() {
@@ -771,29 +841,35 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
     }
 
     async _onSliderChanged() {
-        const entity = this._settings.get_string('slider-entity');
-        const service = this._settings.get_string('slider-service');
-        const attribute = this._settings.get_string('slider-attribute');
-        if (!entity || !service)
-            return;
+        const targets = this._getTargetSliderConfigs();
+        if (targets.length === 0) return;
 
         this._markUserCommand();
 
-        const min = this._settings.get_double('slider-min');
-        const max = this._settings.get_double('slider-max');
-        const value = Math.round(min + this._slider.value * (max - min));
-
-        const [domain, svc] = service.split('.');
-        if (!entityMatchesDomain(entity, domain)) {
-            console.error(`[RoomPanel] Slider call skipped: entity "${entity}" does not match service domain "${domain}"`);
-            return;
+        // Group by (service, attribute, min, max) → batch entities with identical config
+        const groups = new Map();
+        for (const cfg of targets) {
+            if (!cfg.entity_id || !cfg.service) continue;
+            const key = `${cfg.service}||${cfg.attribute}||${cfg.min}||${cfg.max}`;
+            if (!groups.has(key)) groups.set(key, { cfg, entities: [] });
+            groups.get(key).entities.push(cfg.entity_id);
         }
 
-        try {
-            await this._haClient.callService(domain, svc,
-                { entity_id: entity, [attribute]: value });
-        } catch (e) {
-            console.error('[RoomPanel] Slider call failed:', e.message);
+        for (const { cfg, entities } of groups.values()) {
+            const [domain, svc] = cfg.service.split('.');
+            const valid = entities.filter(e => entityMatchesDomain(e, domain));
+            if (valid.length === 0) continue;
+            const min = Number(cfg.min ?? 0);
+            const max = Number(cfg.max ?? 255);
+            const value = Math.round(min + this._slider.value * (max - min));
+            try {
+                await this._haClient.callService(domain, svc, {
+                    entity_id: valid.length === 1 ? valid[0] : valid,
+                    [cfg.attribute]: value,
+                });
+            } catch (e) {
+                console.error('[RoomPanel] Slider call failed:', e.message);
+            }
         }
     }
 
