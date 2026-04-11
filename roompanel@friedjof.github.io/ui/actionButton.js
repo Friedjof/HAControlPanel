@@ -113,8 +113,11 @@ class ActionButton extends St.Button {
         });
         content.add_child(metaRow);
 
+        const entityText = _formatEntity(config.entity_id);
+        const serviceText = _formatService(config.service);
+
         this._entityLabel = new St.Label({
-            text: _formatEntity(config.entity_id),
+            text: entityText,
             style_class: 'roompanel-action-button-meta roompanel-action-button-meta-entity',
             x_expand: true,
             x_align: Clutter.ActorAlign.START,
@@ -123,26 +126,25 @@ class ActionButton extends St.Button {
         this._entityLabel.clutter_text.ellipsize = Pango.EllipsizeMode.END;
         metaRow.add_child(this._entityLabel);
 
-        const separator = new St.Label({
-            text: '·',
-            style_class: 'roompanel-action-button-meta roompanel-action-button-meta-separator',
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        metaRow.add_child(separator);
-
         this._serviceLabel = new St.Label({
-            text: _formatService(config.service),
+            text: serviceText,
             style_class: 'roompanel-action-button-meta roompanel-action-button-meta-service',
             x_align: Clutter.ActorAlign.END,
             y_align: Clutter.ActorAlign.CENTER,
         });
         this._serviceLabel.clutter_text.line_wrap = false;
-        metaRow.add_child(this._serviceLabel);
 
-        if (!this._entityLabel.text)
-            separator.visible = false;
-        if (!this._serviceLabel.text) {
-            separator.visible = false;
+        if (entityText && serviceText) {
+            metaRow.add_child(new St.Label({
+                text: '·',
+                style_class: 'roompanel-action-button-meta roompanel-action-button-meta-separator',
+                y_align: Clutter.ActorAlign.CENTER,
+            }));
+        }
+
+        if (serviceText) {
+            metaRow.add_child(this._serviceLabel);
+        } else {
             this._serviceLabel.visible = false;
         }
 
