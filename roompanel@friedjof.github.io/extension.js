@@ -31,9 +31,17 @@ export default class RoomPanelExtension extends Extension {
 
     _createIndicator() {
         this._indicator = new RoomPanelIndicator(
-            this._settings, this._haClient, () => this.openPreferences()
+            this._settings, this._haClient, () => void this._openPreferencesSafely()
         );
         Main.panel.addToStatusArea(this.uuid, this._indicator);
+    }
+
+    async _openPreferencesSafely() {
+        try {
+            await this.openPreferences();
+        } catch (e) {
+            console.error('[RoomPanel] Failed to open preferences:', e);
+        }
     }
 
     _setupAutoBackup() {
