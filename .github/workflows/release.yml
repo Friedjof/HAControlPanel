@@ -52,16 +52,16 @@ jobs:
             RANGE_HINT="(initial release)"
           fi
 
-          LAST_3=$(git log -3 --pretty=format:"- **%s** (\`%h\`) — %an")
+          LAST_5=$(git log -5 --pretty=format:"- **%s** (\`%h\`) — %an")
 
           {
             echo "## What's changed ${RANGE_HINT}"
             echo ""
             echo "${CHANGES}"
             echo ""
-            echo "### Last 3 commits"
+            echo "### Last 5 commits"
             echo ""
-            echo "${LAST_3}"
+            echo "${LAST_5}"
             echo ""
             echo "---"
             echo ""
