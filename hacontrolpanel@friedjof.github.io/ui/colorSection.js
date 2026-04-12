@@ -148,10 +148,33 @@ export class ColorSection {
         });
         colorTopRow.add_child(colorInfoBox);
 
-        colorInfoBox.add_child(new St.Label({
+        const colorTitleRow = new St.BoxLayout({
+            vertical: false,
+            x_expand: true,
+            style_class: 'roompanel-color-title-row',
+        });
+        colorInfoBox.add_child(colorTitleRow);
+
+        colorTitleRow.add_child(new St.Label({
             text: 'Color',
             style_class: 'roompanel-section-label',
         }));
+
+        this._screenSyncToggleLabel = new St.Label({
+            text: 'Sync',
+            style_class: 'roompanel-screen-sync-toggle-label',
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        this._screenSyncToggle = new St.Button({
+            style_class: 'button roompanel-screen-sync-toggle',
+            can_focus: true,
+            reactive: true,
+            child: this._screenSyncToggleLabel,
+            x_align: Clutter.ActorAlign.START,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        this._screenSyncToggle.connect('clicked', () => this._toggleScreenSync());
+        colorTitleRow.add_child(this._screenSyncToggle);
 
         this._colorEntityLabel = new St.Label({
             text: '',
@@ -266,6 +289,7 @@ export class ColorSection {
         this._updateColorEntityLabel();
         this._rebuildChips();
         this._rebuildColorHistory();
+        this._updateScreenSyncToggle();
     }
 
     _connectSettings() {
@@ -280,6 +304,9 @@ export class ColorSection {
                 this._menuItem.visible = this._settings.get_strv('color-entities').some(Boolean);
                 void this.hydrateFromHA();
             }
+
+            if (key === 'screen-sync-enabled' || key === 'screen-sync-entities')
+                this._updateScreenSyncToggle();
         });
 
         this._menuItem.visible = this._settings.get_strv('color-entities').some(Boolean);
@@ -291,6 +318,18 @@ export class ColorSection {
         const all = this._settings.get_strv('color-entities').filter(Boolean);
         const selected = this._settings.get_strv('color-selected').filter(e => all.includes(e));
         return selected.length > 0 ? selected : all;
+    }
+
+    _hasScreenSyncTargets() {
+        try {
+            const configs = JSON.parse(this._settings.get_string('screen-sync-entities'));
+            return configs.some(config =>
+                config?.enabled !== false &&
+                String(config?.entity_id ?? '').trim().startsWith('light.')
+            );
+        } catch {
+            return false;
+        }
     }
 
     _getColorHexFromState(state) {
@@ -455,6 +494,42 @@ export class ColorSection {
             this._colorEntityLabel.text = this._entityNames[targets[0]] ?? formatEntityLabel(targets[0]);
         else
             this._colorEntityLabel.text = `${targets.length} entities`;
+    }
+
+    _updateScreenSyncToggle() {
+        if (!this._screenSyncToggle)
+            return;
+
+        const hasTargets = this._hasScreenSyncTargets();
+        const enabled = hasTargets && this._settings.get_boolean('screen-sync-enabled');
+
+        this._screenSyncToggle.visible = hasTargets;
+        this._screenSyncToggle.reactive = hasTargets;
+        this._screenSyncToggle.can_focus = hasTargets;
+        this._screenSyncToggleLabel.text = 'Sync';
+        this._screenSyncToggle.tooltip_text = enabled
+            ? 'Screen Sync enabled. Click to disable dynamic screen sync.'
+            : 'Screen Sync disabled. Click to enable dynamic screen sync.';
+
+        if (enabled)
+            this._screenSyncToggle.add_style_class_name('roompanel-screen-sync-toggle-active');
+        else
+            this._screenSyncToggle.remove_style_class_name('roompanel-screen-sync-toggle-active');
+
+        if (enabled)
+            this._screenSyncToggleLabel.add_style_class_name('roompanel-screen-sync-toggle-label-active');
+        else
+            this._screenSyncToggleLabel.remove_style_class_name('roompanel-screen-sync-toggle-label-active');
+    }
+
+    _toggleScreenSync() {
+        if (!this._hasScreenSyncTargets())
+            return;
+
+        this._settings.set_boolean(
+            'screen-sync-enabled',
+            !this._settings.get_boolean('screen-sync-enabled')
+        );
     }
 
     _copyCurrentColor() {

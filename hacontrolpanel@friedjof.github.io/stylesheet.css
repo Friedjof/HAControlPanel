@@ -79,6 +79,10 @@
   margin-bottom: 4px;
 }
 
+.roompanel-color-title-row {
+  spacing: 8px;
+}
+
 .roompanel-color-right {
   spacing: 4px;
 }
@@ -90,6 +94,37 @@
   margin-top: 4px;
   margin-bottom: 2px;
   padding-left: 2px;
+}
+
+.roompanel-screen-sync-toggle {
+  min-height: 22px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.roompanel-screen-sync-toggle:hover {
+  background-color: rgba(255, 255, 255, 0.10);
+}
+
+.roompanel-screen-sync-toggle:active {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.roompanel-screen-sync-toggle-label {
+  font-size: 0.72em;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.56);
+}
+
+.roompanel-screen-sync-toggle-active {
+  background-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.34);
+}
+
+.roompanel-screen-sync-toggle-label-active {
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .roompanel-color-value {
