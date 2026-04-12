@@ -19,7 +19,7 @@ export class HaWebSocket {
         this._wsNextId = 1;
         this._wsRetries = 0;
         this._wsReconnectId = null;
-        this._liveCallback = null;
+        this._liveCallbacks = new Set();
     }
 
     /**
@@ -30,14 +30,28 @@ export class HaWebSocket {
      *   { entity_id, new_state: {state, attributes}, old_state } for every event.
      */
     connectLive(onStateChange) {
-        this._liveCallback = onStateChange;
+        if (typeof onStateChange !== 'function')
+            return;
+
+        const wasEmpty = this._liveCallbacks.size === 0;
+        this._liveCallbacks.add(onStateChange);
+        if (!wasEmpty || this._ws || this._wsReconnectId)
+            return;
+
         this._wsRetries = 0;
         this._wsConnect();
     }
 
     /** Stop the live connection and cancel any pending reconnect. */
-    disconnectLive() {
-        this._liveCallback = null;
+    disconnectLive(onStateChange = null) {
+        if (onStateChange)
+            this._liveCallbacks.delete(onStateChange);
+        else
+            this._liveCallbacks.clear();
+
+        if (this._liveCallbacks.size > 0)
+            return;
+
         if (this._wsReconnectId) {
             GLib.source_remove(this._wsReconnectId);
             this._wsReconnectId = null;
@@ -50,7 +64,7 @@ export class HaWebSocket {
      * If the live channel was active it is re-established immediately.
      */
     reconnect() {
-        const wasLive = !!this._liveCallback;
+        const wasLive = this._liveCallbacks.size > 0;
         this._wsClose();
         if (this._wsReconnectId) {
             GLib.source_remove(this._wsReconnectId);
@@ -74,7 +88,7 @@ export class HaWebSocket {
     _wsConnect() {
         const url = this._getUrl();
         const token = this._getToken();
-        if (!url || !token || !this._liveCallback)
+        if (!url || !token || this._liveCallbacks.size === 0)
             return;
 
         try {
@@ -112,7 +126,7 @@ export class HaWebSocket {
 
                     this._ws.connect('closed', () => {
                         this._ws = null;
-                        if (this._liveCallback)
+                        if (this._liveCallbacks.size > 0)
                             this._wsScheduleReconnect();
                     });
 
@@ -151,8 +165,15 @@ export class HaWebSocket {
                 break;
 
             case 'event':
-                if (msg.event?.event_type === 'state_changed' && this._liveCallback)
-                    this._liveCallback(msg.event.data);
+                if (msg.event?.event_type === 'state_changed') {
+                    for (const callback of this._liveCallbacks) {
+                        try {
+                            callback(msg.event.data);
+                        } catch (e) {
+                            console.error('[RoomPanel] WS callback failed:', e.message);
+                        }
+                    }
+                }
                 break;
 
             // 'result' messages (ack for subscribe) – silently ignored

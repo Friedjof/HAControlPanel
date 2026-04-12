@@ -8,6 +8,7 @@
 
 const VALID_SYNC_MODES  = new Set(['dominant', 'average', 'vibrant', 'accent', 'backlight']);
 const VALID_SYNC_SCOPES = new Set(['primary', 'stage']);
+const VALID_SYNC_CONDITION_OPERATORS = new Set(['=', '!=', 'regex']);
 const VALID_WIDGET_TYPES = new Set(['value', 'trend', 'gauge']);
 const VALID_SPAN        = new Set(['half', 'full']);
 const VALID_SEV_COLORS  = new Set(['ok', 'warn', 'alert']);
@@ -123,6 +124,35 @@ function checkScreenSync(ss, errors, warnings) {
             if (typeof e === 'object' && e !== null && e.enabled !== undefined && !isBool(e.enabled))
                 warnings.push(`panel.screen_sync.entities[${i}].enabled should be a boolean`);
         });
+    }
+
+    if (ss.condition !== undefined) {
+        if (!ss.condition || typeof ss.condition !== 'object' || Array.isArray(ss.condition)) {
+            errors.push('panel.screen_sync.condition must be an object');
+        } else {
+            if (ss.condition.enabled !== undefined && !isBool(ss.condition.enabled))
+                warnings.push('panel.screen_sync.condition.enabled should be a boolean');
+
+            if (ss.condition.enabled === false)
+                return;
+
+            checkRequiredEntityId('panel.screen_sync.condition.entity_id', ss.condition.entity_id, errors, warnings);
+
+            const operator = String(ss.condition.operator ?? '=');
+            if (!VALID_SYNC_CONDITION_OPERATORS.has(operator))
+                errors.push(`panel.screen_sync.condition.operator: "${operator}" is not valid — use one of: ${[...VALID_SYNC_CONDITION_OPERATORS].join(', ')}`);
+
+            if (ss.condition.value !== undefined && !isString(ss.condition.value))
+                warnings.push('panel.screen_sync.condition.value should be a string');
+
+            if (operator === 'regex') {
+                try {
+                    new RegExp(String(ss.condition.value ?? ''));
+                } catch (e) {
+                    errors.push(`panel.screen_sync.condition.value: invalid regex — ${e.message}`);
+                }
+            }
+        }
     }
 }
 

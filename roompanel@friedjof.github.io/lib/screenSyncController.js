@@ -8,10 +8,27 @@ const COLOR_DIFF_THRESHOLD = 18;
 const CONFIG_KEYS = new Set([
     'screen-sync-enabled',
     'screen-sync-entities',
+    'screen-sync-condition',
     'screen-sync-interval',
     'screen-sync-mode',
     'screen-sync-scope',
 ]);
+const CONNECTION_KEYS = new Set(['ha-url', 'ha-token', 'ha-verify-ssl']);
+
+function normalizeScreenSyncCondition(condition) {
+    const operator = ['=', '!=', 'regex'].includes(String(condition?.operator ?? '='))
+        ? String(condition?.operator ?? '=')
+        : '=';
+
+    return {
+        enabled: condition?.enabled !== false,
+        entity_id: String(condition?.entity_id ?? '').trim(),
+        operator,
+        value: condition?.value === undefined || condition?.value === null
+            ? ''
+            : String(condition.value),
+    };
+}
 
 function clampByte(value) {
     return Math.max(0, Math.min(255, Math.round(Number(value) || 0)));
@@ -259,6 +276,13 @@ export class ScreenSyncController {
         this._running = false;
         this._lastSentColor = null;
         this._lastError = '';
+        this._condition = normalizeScreenSyncCondition({});
+        this._conditionSatisfied = true;
+        this._conditionStateKnown = true;
+        this._lastConditionError = '';
+        this._liveStateHandler = data => this._handleLiveStateChanged(data);
+
+        this._haClient.connectLive(this._liveStateHandler);
 
         this._settingsChangedId = this._settings.connect('changed', (_settings, key) => {
             if (key === 'screen-sync-preview-request') {
@@ -266,14 +290,24 @@ export class ScreenSyncController {
                 return;
             }
 
+            if (key === 'screen-sync-condition' || CONNECTION_KEYS.has(key)) {
+                void this._refreshConditionState();
+                return;
+            }
+
             if (CONFIG_KEYS.has(key))
                 this._restart();
         });
 
-        this._restart();
+        void this._refreshConditionState();
     }
 
     destroy() {
+        if (this._liveStateHandler) {
+            this._haClient.disconnectLive(this._liveStateHandler);
+            this._liveStateHandler = null;
+        }
+
         if (this._settingsChangedId) {
             this._settings.disconnect(this._settingsChangedId);
             this._settingsChangedId = null;
@@ -283,6 +317,99 @@ export class ScreenSyncController {
             GLib.source_remove(this._sourceId);
             this._sourceId = null;
         }
+    }
+
+    _loadCondition() {
+        try {
+            return normalizeScreenSyncCondition(
+                JSON.parse(this._settings.get_string('screen-sync-condition'))
+            );
+        } catch {
+            return normalizeScreenSyncCondition({});
+        }
+    }
+
+    _setConditionState(satisfied, known = true) {
+        const nextSatisfied = !!satisfied;
+        const nextKnown = !!known;
+        const changed = this._conditionSatisfied !== nextSatisfied ||
+            this._conditionStateKnown !== nextKnown;
+
+        this._conditionSatisfied = nextSatisfied;
+        this._conditionStateKnown = nextKnown;
+        if (changed)
+            this._restart();
+    }
+
+    _evaluateConditionValue(actualValue) {
+        const actual = String(actualValue ?? '');
+        const { operator, value } = this._condition;
+
+        try {
+            switch (operator) {
+            case '!=':
+                this._lastConditionError = '';
+                return actual !== value;
+            case 'regex':
+                this._lastConditionError = '';
+                return new RegExp(value).test(actual);
+            case '=':
+            default:
+                this._lastConditionError = '';
+                return actual === value;
+            }
+        } catch (e) {
+            const message = e?.message ?? String(e);
+            if (message !== this._lastConditionError) {
+                this._lastConditionError = message;
+                console.error(`[RoomPanel] Screen sync condition failed: ${message}`);
+            }
+            return false;
+        }
+    }
+
+    async _refreshConditionState() {
+        this._condition = this._loadCondition();
+        this._lastConditionError = '';
+
+        if (!this._condition.enabled || !this._condition.entity_id) {
+            this._setConditionState(true, true);
+            return;
+        }
+
+        this._setConditionState(false, false);
+        const expectedEntityId = this._condition.entity_id;
+
+        try {
+            const state = await this._haClient.getState(expectedEntityId);
+            if (this._condition.entity_id !== expectedEntityId)
+                return;
+
+            this._setConditionState(
+                this._evaluateConditionValue(state?.state ?? ''),
+                true
+            );
+        } catch (e) {
+            if (this._condition.entity_id !== expectedEntityId)
+                return;
+
+            const message = e?.message ?? String(e);
+            if (message !== this._lastConditionError) {
+                this._lastConditionError = message;
+                console.error(`[RoomPanel] Screen sync condition refresh failed: ${message}`);
+            }
+            this._setConditionState(false, true);
+        }
+    }
+
+    _handleLiveStateChanged({ entity_id, new_state }) {
+        if (!this._condition.enabled || !this._condition.entity_id || entity_id !== this._condition.entity_id)
+            return;
+
+        this._setConditionState(
+            this._evaluateConditionValue(new_state?.state ?? ''),
+            true
+        );
     }
 
     _getActiveEntities() {
@@ -298,7 +425,8 @@ export class ScreenSyncController {
 
     _shouldRun() {
         return this._settings.get_boolean('screen-sync-enabled') &&
-            this._getActiveEntities().length > 0;
+            this._getActiveEntities().length > 0 &&
+            (!this._condition.enabled || !this._condition.entity_id || (this._conditionStateKnown && this._conditionSatisfied));
     }
 
     _restart() {
@@ -336,6 +464,9 @@ export class ScreenSyncController {
             const nextColor = colorForMode(mode, colors);
 
             if (!nextColor)
+                return;
+
+            if (!this._shouldRun())
                 return;
 
             if (colorDistance(this._lastSentColor, nextColor) < COLOR_DIFF_THRESHOLD)

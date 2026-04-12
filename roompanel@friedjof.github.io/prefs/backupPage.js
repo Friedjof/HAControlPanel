@@ -12,6 +12,26 @@ function getDownloadsDir() {
     return Gio.File.new_for_path(xdg || GLib.get_home_dir());
 }
 
+function normalizeScreenSyncCondition(condition) {
+    const entityId = String(condition?.entity_id ?? '').trim();
+    const enabled = condition?.enabled !== false;
+    if (!entityId && enabled)
+        return {};
+
+    const operator = ['=', '!=', 'regex'].includes(String(condition?.operator ?? '='))
+        ? String(condition?.operator ?? '=')
+        : '=';
+
+    return {
+        ...(enabled ? {} : { enabled: false }),
+        entity_id: entityId,
+        operator,
+        value: condition?.value === undefined || condition?.value === null
+            ? ''
+            : String(condition.value),
+    };
+}
+
 /**
  * Apply an imported YAML object back to GSettings.
  * Token is intentionally excluded from backup for security.
@@ -43,6 +63,10 @@ function applyObjectToSettings(obj, settings) {
         const entityId = String(screenSync.entity);
         settings.set_string('screen-sync-entities', entityId ? JSON.stringify([{ entity_id: entityId, enabled: true }]) : '[]');
     }
+    settings.set_string(
+        'screen-sync-condition',
+        JSON.stringify(normalizeScreenSyncCondition(screenSync.condition))
+    );
     if (screenSync.interval !== undefined) settings.set_double('screen-sync-interval', Number(screenSync.interval) || 2.0);
     if (screenSync.mode !== undefined) settings.set_string('screen-sync-mode', String(screenSync.mode));
     if (screenSync.scope !== undefined) settings.set_string('screen-sync-scope', String(screenSync.scope));

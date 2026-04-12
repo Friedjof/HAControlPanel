@@ -126,8 +126,8 @@ export class HaClient {
     }
 
     /** Stop the live connection and cancel any pending reconnect. */
-    disconnectLive() {
-        this._ws.disconnectLive();
+    disconnectLive(onStateChange = null) {
+        this._ws.disconnectLive(onStateChange);
     }
 
     // ── Cleanup ─────────────────────────────────────────────────────────────

@@ -20,6 +20,7 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
         this._haClient = haClient;
         this._openPrefs = openPrefs ?? null;
         this._currentPage = 'actions';
+        this._liveStateHandler = null;
 
         // Echo-suppression: after a user command we ignore HA state echoes
         // for this many ms so the UI does not jump back to the stale value.
@@ -178,7 +179,8 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
     // ── Live sync ────────────────────────────────────────────────────────────
 
     _initLiveSync() {
-        this._haClient.connectLive(data => this._onLiveStateChanged(data));
+        this._liveStateHandler = data => this._onLiveStateChanged(data);
+        this._haClient.connectLive(this._liveStateHandler);
         void this._colorSection.hydrateFromHA();
         void this._sliderSection.hydrateFromHA();
         void this._sensorSection.hydrateFromHA();
@@ -280,7 +282,10 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
     // ── Cleanup ──────────────────────────────────────────────────────────────
 
     destroy() {
-        this._haClient.disconnectLive();
+        if (this._liveStateHandler) {
+            this._haClient.disconnectLive(this._liveStateHandler);
+            this._liveStateHandler = null;
+        }
 
         if (this._settingsChangedId) {
             this._settings.disconnect(this._settingsChangedId);
