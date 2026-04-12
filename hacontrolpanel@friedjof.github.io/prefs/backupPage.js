@@ -70,6 +70,13 @@ function applyObjectToSettings(obj, settings) {
     if (screenSync.interval !== undefined) settings.set_double('screen-sync-interval', Number(screenSync.interval) || 2.0);
     if (screenSync.mode !== undefined) settings.set_string('screen-sync-mode', String(screenSync.mode));
     if (screenSync.scope !== undefined) settings.set_string('screen-sync-scope', String(screenSync.scope));
+    if (screenSync.transition !== undefined) settings.set_string('screen-sync-transition', String(screenSync.transition));
+    if (screenSync.output_interval !== undefined) settings.set_int('screen-sync-output-interval', Math.round(Number(screenSync.output_interval) || 500));
+    if (screenSync.threshold !== undefined) settings.set_int('screen-sync-threshold', Math.round(Number(screenSync.threshold) || 18));
+    if (screenSync.history_size !== undefined) settings.set_int('screen-sync-history-size', Math.round(Number(screenSync.history_size) || 4));
+    if (screenSync.ema_time !== undefined) settings.set_double('screen-sync-ema-time', Number(screenSync.ema_time) || 2.0);
+    if (screenSync.spring_stiffness !== undefined) settings.set_double('screen-sync-spring-stiffness', Number(screenSync.spring_stiffness) || 0.15);
+    if (screenSync.spring_damping !== undefined) settings.set_double('screen-sync-spring-damping', Number(screenSync.spring_damping) || 0.75);
 
     const slider = obj.panel?.slider ?? {};
     if (Array.isArray(slider.entities))

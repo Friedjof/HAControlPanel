@@ -66,12 +66,52 @@
     <key name="screen-sync-mode" type="s">
       <default>"dominant"</default>
       <summary>Screen Sync Color Mode</summary>
-      <description>How to derive the color from sampled screen pixels: dominant or average</description>
+      <description>How to derive the color from sampled screen pixels: dominant, average, vibrant, accent, or backlight</description>
     </key>
     <key name="screen-sync-scope" type="s">
       <default>"primary"</default>
       <summary>Screen Sync Scope</summary>
-      <description>Whether to sample the primary monitor or the whole stage</description>
+      <description>Monitor scope for screen color sampling: "primary" (primary monitor), "stage" (entire GNOME stage), or "monitor-N" to target a specific display by zero-based index</description>
+    </key>
+    <key name="screen-sync-transition" type="s">
+      <default>"catmull-rom"</default>
+      <summary>Screen Sync Transition Mode</summary>
+      <description>Color interpolation mode between sampled frames: off, linear, ema, moving-average, catmull-rom, spring</description>
+    </key>
+    <key name="screen-sync-output-interval" type="i">
+      <default>500</default>
+      <summary>Screen Sync Output Interval</summary>
+      <description>Milliseconds between interpolated color updates sent to Home Assistant</description>
+    </key>
+    <key name="screen-sync-threshold" type="i">
+      <default>18</default>
+      <summary>Screen Sync Color Difference Threshold</summary>
+      <description>Minimum RGB distance before a newly interpolated color is sent to Home Assistant</description>
+    </key>
+    <key name="screen-sync-history-size" type="i">
+      <default>4</default>
+      <summary>Screen Sync History Size</summary>
+      <description>History length used by the Moving Average and Catmull-Rom transition modes</description>
+    </key>
+    <key name="screen-sync-ema-time" type="d">
+      <default>2.0</default>
+      <summary>Screen Sync EMA Transition Time</summary>
+      <description>Approximate fade time in seconds for the EMA transition mode</description>
+    </key>
+    <key name="screen-sync-spring-stiffness" type="d">
+      <default>0.15</default>
+      <summary>Screen Sync Spring Stiffness</summary>
+      <description>Spring force used by the spring transition mode</description>
+    </key>
+    <key name="screen-sync-spring-damping" type="d">
+      <default>0.75</default>
+      <summary>Screen Sync Spring Damping</summary>
+      <description>Damping multiplier used by the spring transition mode</description>
+    </key>
+    <key name="screen-sync-identify-request" type="i">
+      <default>0</default>
+      <summary>Screen Sync Identify Request</summary>
+      <description>Transient nonce written by the preferences dialog to trigger a monitor identification overlay in the shell extension</description>
     </key>
     <key name="screen-sync-preview-request" type="i">
       <default>0</default>

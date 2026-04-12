@@ -8,6 +8,7 @@
 
 const VALID_SYNC_MODES  = new Set(['dominant', 'average', 'vibrant', 'accent', 'backlight']);
 const VALID_SYNC_SCOPES = new Set(['primary', 'stage']);
+const VALID_SYNC_TRANSITIONS = new Set(['off', 'linear', 'ema', 'moving-average', 'catmull-rom', 'spring']);
 const VALID_SYNC_CONDITION_OPERATORS = new Set(['=', '!=', 'regex']);
 const VALID_WIDGET_TYPES = new Set(['value', 'trend', 'gauge']);
 const VALID_SPAN        = new Set(['half', 'full']);
@@ -19,6 +20,9 @@ function isString(v) { return typeof v === 'string'; }
 function isBool(v)   { return typeof v === 'boolean'; }
 function isNumber(v) { return typeof v === 'number' && Number.isFinite(v); }
 function asText(v)   { return v === undefined || v === null ? '' : String(v); }
+function isScreenSyncScope(v) {
+    return isString(v) && (VALID_SYNC_SCOPES.has(v) || /^monitor-\d+$/.test(v));
+}
 
 function isEntityId(v) {
     return isString(v) && /^[a-z_]+\.[a-z0-9_]+$/.test(v);
@@ -108,8 +112,47 @@ function checkScreenSync(ss, errors, warnings) {
     if (ss.mode !== undefined && !VALID_SYNC_MODES.has(String(ss.mode)))
         errors.push(`panel.screen_sync.mode: "${ss.mode}" is not valid — use one of: ${[...VALID_SYNC_MODES].join(', ')}`);
 
-    if (ss.scope !== undefined && !VALID_SYNC_SCOPES.has(String(ss.scope)))
-        errors.push(`panel.screen_sync.scope: "${ss.scope}" is not valid — use one of: ${[...VALID_SYNC_SCOPES].join(', ')}`);
+    if (ss.scope !== undefined && !isScreenSyncScope(String(ss.scope)))
+        errors.push(`panel.screen_sync.scope: "${ss.scope}" is not valid — use one of: ${[...VALID_SYNC_SCOPES].join(', ')}, or monitor-N`);
+
+    if (ss.transition !== undefined && !VALID_SYNC_TRANSITIONS.has(String(ss.transition)))
+        errors.push(`panel.screen_sync.transition: "${ss.transition}" is not valid — use one of: ${[...VALID_SYNC_TRANSITIONS].join(', ')}`);
+
+    if (ss.output_interval !== undefined) {
+        const iv = Number(ss.output_interval);
+        if (!Number.isFinite(iv) || iv < 100 || iv > 2000)
+            warnings.push(`panel.screen_sync.output_interval: ${ss.output_interval} is outside the valid range 100 – 2000 ms`);
+    }
+
+    if (ss.threshold !== undefined) {
+        const threshold = Number(ss.threshold);
+        if (!Number.isFinite(threshold) || threshold < 0 || threshold > 255)
+            warnings.push(`panel.screen_sync.threshold: ${ss.threshold} is outside the valid range 0 – 255`);
+    }
+
+    if (ss.history_size !== undefined) {
+        const historySize = Number(ss.history_size);
+        if (!Number.isFinite(historySize) || historySize < 2 || historySize > 8)
+            warnings.push(`panel.screen_sync.history_size: ${ss.history_size} is outside the valid range 2 – 8`);
+    }
+
+    if (ss.ema_time !== undefined) {
+        const emaTime = Number(ss.ema_time);
+        if (!Number.isFinite(emaTime) || emaTime < 0.1 || emaTime > 10)
+            warnings.push(`panel.screen_sync.ema_time: ${ss.ema_time} is outside the valid range 0.1 – 10 s`);
+    }
+
+    if (ss.spring_stiffness !== undefined) {
+        const stiffness = Number(ss.spring_stiffness);
+        if (!Number.isFinite(stiffness) || stiffness < 0.01 || stiffness > 1)
+            warnings.push(`panel.screen_sync.spring_stiffness: ${ss.spring_stiffness} is outside the valid range 0.01 – 1.0`);
+    }
+
+    if (ss.spring_damping !== undefined) {
+        const damping = Number(ss.spring_damping);
+        if (!Number.isFinite(damping) || damping < 0.05 || damping > 0.99)
+            warnings.push(`panel.screen_sync.spring_damping: ${ss.spring_damping} is outside the valid range 0.05 – 0.99`);
+    }
 
     if (Array.isArray(ss.entities)) {
         ss.entities.forEach((e, i) => {

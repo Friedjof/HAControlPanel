@@ -1,4 +1,5 @@
 import Adw from 'gi://Adw';
+import Gdk from 'gi://Gdk';
 import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk';
 import GObject from 'gi://GObject';
@@ -144,6 +145,37 @@ class ButtonsPage extends Adw.PreferencesPage {
         });
 
         this._screenSyncEntityRows = [];
+        const createSpinActionRow = ({
+            title,
+            subtitle,
+            lower,
+            upper,
+            step,
+            page,
+            value,
+            digits = 0,
+            unit = '',
+            onChanged,
+        }) => {
+            const row = new Adw.ActionRow({ title, subtitle });
+            const spin = new Gtk.SpinButton({
+                adjustment: new Gtk.Adjustment({
+                    lower,
+                    upper,
+                    step_increment: step,
+                    page_increment: page,
+                    value,
+                }),
+                digits,
+                valign: Gtk.Align.CENTER,
+            });
+            spin.connect('value-changed', () => onChanged(spin.get_value()));
+            row.add_suffix(spin);
+            if (unit)
+                row.add_suffix(new Gtk.Label({ label: unit, valign: Gtk.Align.CENTER }));
+            row.activatable_widget = spin;
+            return { row, spin };
+        };
 
         const intervalRow = new Adw.ActionRow({
             title: 'Interval',
@@ -167,6 +199,22 @@ class ButtonsPage extends Adw.PreferencesPage {
         screenSyncGroup.add(intervalRow);
         this._screenSyncIntervalRow = intervalRow;
 
+        const { row: outputIntervalRow, spin: outputIntervalSpin } = createSpinActionRow({
+            title: 'Output Interval',
+            subtitle: 'How often interpolated colors are sent between screen samples',
+            lower: 100,
+            upper: 2000,
+            step: 50,
+            page: 100,
+            value: settings.get_int('screen-sync-output-interval') || 500,
+            digits: 0,
+            unit: 'ms',
+            onChanged: value => settings.set_int('screen-sync-output-interval', Math.round(value)),
+        });
+        screenSyncGroup.add(outputIntervalRow);
+        this._screenSyncOutputIntervalRow = outputIntervalRow;
+        this._screenSyncOutputIntervalSpin = outputIntervalSpin;
+
         const modeRow = new Adw.ActionRow({
             title: 'Color Mode',
             subtitle: 'Average blends everything, dominant picks the biggest bucket, vibrant and accent prefer saturated colors, backlight maximises saturation for LED strips behind the screen',
@@ -188,26 +236,118 @@ class ButtonsPage extends Adw.PreferencesPage {
         screenSyncGroup.add(modeRow);
         this._screenSyncModeRow = modeRow;
 
-        const scopeRow = new Adw.ActionRow({
-            title: 'Sampling Scope',
-            subtitle: 'Primary monitor avoids other displays; whole stage includes everything GNOME renders',
+        // Transition mode — labels are paired with the setting keys stored in GSettings.
+        // To add a mode: add an entry here AND add the interpolator in lib/screenSyncController.js.
+        const TRANSITION_VALUES = ['off', 'linear', 'ema', 'moving-average', 'catmull-rom', 'spring'];
+        const TRANSITION_LABELS = ['Off (instant)', 'Linear', 'Smooth (EMA)', 'Moving Average', 'Catmull-Rom Spline', 'Spring Physics'];
+
+        const transitionRow = new Adw.ActionRow({
+            title: 'Color Transition',
+            subtitle: 'How to interpolate between sampled screen colors; Catmull-Rom gives smooth organic curves, EMA the softest fade, Spring an elastic feel',
         });
-        this._screenSyncScopeModel = createStringList(['primary', 'stage']);
-        this._screenSyncScopeDropdown = new Gtk.DropDown({
-            model: this._screenSyncScopeModel,
+        this._screenSyncTransitionValues = TRANSITION_VALUES;
+        this._screenSyncTransitionModel  = createStringList(TRANSITION_LABELS);
+        this._screenSyncTransitionDropdown = new Gtk.DropDown({
+            model:  this._screenSyncTransitionModel,
             valign: Gtk.Align.CENTER,
         });
-        setDropDownValue(
-            this._screenSyncScopeDropdown,
-            this._screenSyncScopeModel,
-            settings.get_string('screen-sync-scope') || 'primary'
-        );
-        this._screenSyncScopeDropdown.connect('notify::selected-item', () =>
-            settings.set_string('screen-sync-scope', getDropDownValue(this._screenSyncScopeDropdown) || 'primary'));
+
+        const savedTransition    = settings.get_string('screen-sync-transition') || 'catmull-rom';
+        const savedTransitionIdx = TRANSITION_VALUES.indexOf(savedTransition);
+        this._screenSyncTransitionDropdown.set_selected(savedTransitionIdx >= 0 ? savedTransitionIdx : 4);
+
+        this._screenSyncTransitionDropdown.connect('notify::selected', () => {
+            const sel   = this._screenSyncTransitionDropdown.get_selected();
+            const value = this._screenSyncTransitionValues[sel] ?? 'catmull-rom';
+            settings.set_string('screen-sync-transition', value);
+            this._updateScreenSyncTransitionOptionVisibility();
+        });
+
+        transitionRow.add_suffix(this._screenSyncTransitionDropdown);
+        transitionRow.activatable_widget = this._screenSyncTransitionDropdown;
+        screenSyncGroup.add(transitionRow);
+        this._screenSyncTransitionRow = transitionRow;
+
+        const { row: thresholdRow, spin: thresholdSpin } = createSpinActionRow({
+            title: 'Change Threshold',
+            subtitle: 'Minimum RGB difference before a new output color is sent',
+            lower: 0,
+            upper: 255,
+            step: 1,
+            page: 10,
+            value: settings.get_int('screen-sync-threshold') || 18,
+            digits: 0,
+            onChanged: value => settings.set_int('screen-sync-threshold', Math.round(value)),
+        });
+        screenSyncGroup.add(thresholdRow);
+        this._screenSyncThresholdRow = thresholdRow;
+        this._screenSyncThresholdSpin = thresholdSpin;
+
+        const scopeRow = new Adw.ActionRow({
+            title: 'Sampling Scope',
+            subtitle: 'Choose which display to sample: primary monitor, entire stage, or a specific display by index',
+        });
+
+        // Build scope values and labels dynamically from available monitors
+        const scopeValues = ['primary', 'stage'];
+        const scopeLabels = ['Primary monitor', 'Entire stage'];
+
+        const gdkDisplay = Gdk.Display.get_default();
+        if (gdkDisplay) {
+            const gdkMonitors = gdkDisplay.get_monitors();
+            const n = gdkMonitors.get_n_items();
+            for (let i = 0; i < n; i++) {
+                const mon   = gdkMonitors.get_item(i);
+                const geo   = mon.get_geometry();
+                const mfr   = mon.get_manufacturer() ?? '';
+                const model = mon.get_model()        ?? '';
+                const name  = [mfr, model].filter(Boolean).join(' ') || null;
+                const posLabel = geo.x === 0 && geo.y === 0
+                    ? ''
+                    : ` at (+${geo.x},+${geo.y})`;
+                const label = name
+                    ? `Display ${i + 1} · ${name} (${geo.width}×${geo.height})`
+                    : `Display ${i + 1} · ${geo.width}×${geo.height}${posLabel}`;
+                scopeValues.push(`monitor-${i}`);
+                scopeLabels.push(label);
+            }
+        }
+
+        this._screenSyncScopeValues = scopeValues;
+        this._screenSyncScopeModel  = createStringList(scopeLabels);
+        this._screenSyncScopeDropdown = new Gtk.DropDown({
+            model:  this._screenSyncScopeModel,
+            valign: Gtk.Align.CENTER,
+        });
+
+        const savedScope = settings.get_string('screen-sync-scope') || 'primary';
+        const savedScopeIdx = this._screenSyncScopeValues.indexOf(savedScope);
+        this._screenSyncScopeDropdown.set_selected(savedScopeIdx >= 0 ? savedScopeIdx : 0);
+
+        this._screenSyncScopeDropdown.connect('notify::selected', () => {
+            const sel   = this._screenSyncScopeDropdown.get_selected();
+            const value = this._screenSyncScopeValues[sel] ?? 'primary';
+            settings.set_string('screen-sync-scope', value);
+        });
+
         scopeRow.add_suffix(this._screenSyncScopeDropdown);
         scopeRow.activatable_widget = this._screenSyncScopeDropdown;
         screenSyncGroup.add(scopeRow);
         this._screenSyncScopeRow = scopeRow;
+
+        const identifyRow = new Adw.ActionRow({
+            title: 'Identify Displays',
+            subtitle: 'Briefly shows the display index on each connected monitor',
+        });
+        this._identifyButton = new Gtk.Button({
+            label: 'Identify',
+            valign: Gtk.Align.CENTER,
+            tooltip_text: 'Flash monitor numbers on screen for 3 seconds',
+        });
+        this._identifyButton.connect('clicked', () => void this._identifyDisplays());
+        identifyRow.add_suffix(this._identifyButton);
+        identifyRow.activatable_widget = this._identifyButton;
+        screenSyncGroup.add(identifyRow);
 
         screenSyncGroup.add(new Adw.ActionRow({
             title: 'Output',
@@ -227,6 +367,75 @@ class ButtonsPage extends Adw.PreferencesPage {
         this._screenSyncPreviewButton.connect('clicked', () => this._requestScreenSyncPreview());
         previewRow.add_suffix(this._screenSyncPreviewButton);
         screenSyncGroup.add(previewRow);
+
+        this._screenSyncTransitionSettingsGroup = new Adw.PreferencesGroup({
+            title: 'Transition Options',
+            description: 'Only settings for the selected transition are shown here. Global output controls stay above.',
+        });
+
+        const { row: historySizeRow, spin: historySizeSpin } = createSpinActionRow({
+            title: 'History Size',
+            subtitle: 'Used by Moving Average and Catmull-Rom; more samples smooth more but react slower',
+            lower: 2,
+            upper: 8,
+            step: 1,
+            page: 1,
+            value: settings.get_int('screen-sync-history-size') || 4,
+            digits: 0,
+            unit: 'samples',
+            onChanged: value => settings.set_int('screen-sync-history-size', Math.round(value)),
+        });
+        this._screenSyncTransitionSettingsGroup.add(historySizeRow);
+        this._screenSyncHistorySizeRow = historySizeRow;
+        this._screenSyncHistorySizeSpin = historySizeSpin;
+
+        const { row: emaTimeRow, spin: emaTimeSpin } = createSpinActionRow({
+            title: 'EMA Transition Time',
+            subtitle: 'Approximate fade time for Smooth (EMA)',
+            lower: 0.1,
+            upper: 10,
+            step: 0.1,
+            page: 0.5,
+            value: settings.get_double('screen-sync-ema-time') || 2.0,
+            digits: 1,
+            unit: 's',
+            onChanged: value => settings.set_double('screen-sync-ema-time', value),
+        });
+        this._screenSyncTransitionSettingsGroup.add(emaTimeRow);
+        this._screenSyncEmaTimeRow = emaTimeRow;
+        this._screenSyncEmaTimeSpin = emaTimeSpin;
+
+        const { row: springStiffnessRow, spin: springStiffnessSpin } = createSpinActionRow({
+            title: 'Spring Stiffness',
+            subtitle: 'How strongly the spring transition accelerates toward the target color',
+            lower: 0.01,
+            upper: 1.0,
+            step: 0.01,
+            page: 0.05,
+            value: settings.get_double('screen-sync-spring-stiffness') || 0.15,
+            digits: 2,
+            onChanged: value => settings.set_double('screen-sync-spring-stiffness', value),
+        });
+        this._screenSyncTransitionSettingsGroup.add(springStiffnessRow);
+        this._screenSyncSpringStiffnessRow = springStiffnessRow;
+        this._screenSyncSpringStiffnessSpin = springStiffnessSpin;
+
+        const { row: springDampingRow, spin: springDampingSpin } = createSpinActionRow({
+            title: 'Spring Damping',
+            subtitle: 'How much motion the spring transition keeps between output ticks',
+            lower: 0.05,
+            upper: 0.99,
+            step: 0.01,
+            page: 0.05,
+            value: settings.get_double('screen-sync-spring-damping') || 0.75,
+            digits: 2,
+            onChanged: value => settings.set_double('screen-sync-spring-damping', value),
+        });
+        this._screenSyncTransitionSettingsGroup.add(springDampingRow);
+        this._screenSyncSpringDampingRow = springDampingRow;
+        this._screenSyncSpringDampingSpin = springDampingSpin;
+
+        this._updateScreenSyncTransitionOptionVisibility();
         this._updateScreenSyncSensitivity();
 
         // ── Slider Group ──────────────────────────────────────────────
@@ -276,6 +485,7 @@ class ButtonsPage extends Adw.PreferencesPage {
 
         // Screen Sync goes below Action Buttons
         this.add(screenSyncGroup);
+        this.add(this._screenSyncTransitionSettingsGroup);
 
         this._screenSyncEntitiesGroup = new Adw.PreferencesGroup({
             title: 'Screen Sync Lights',
@@ -1189,15 +1399,38 @@ class ButtonsPage extends Adw.PreferencesPage {
         this._repairLoadedConfigurations();
     }
 
+    _updateScreenSyncTransitionOptionVisibility() {
+        const transition = this._settings.get_string('screen-sync-transition') || 'catmull-rom';
+        const showHistory = transition === 'moving-average' || transition === 'catmull-rom';
+        const showEma = transition === 'ema';
+        const showSpring = transition === 'spring';
+
+        if (this._screenSyncHistorySizeRow)
+            this._screenSyncHistorySizeRow.visible = showHistory;
+        if (this._screenSyncEmaTimeRow)
+            this._screenSyncEmaTimeRow.visible = showEma;
+        if (this._screenSyncSpringStiffnessRow)
+            this._screenSyncSpringStiffnessRow.visible = showSpring;
+        if (this._screenSyncSpringDampingRow)
+            this._screenSyncSpringDampingRow.visible = showSpring;
+        if (this._screenSyncTransitionSettingsGroup)
+            this._screenSyncTransitionSettingsGroup.visible = showHistory || showEma || showSpring;
+    }
+
     _updateScreenSyncSensitivity() {
         const enabled = this._screenSyncEnabledRow?.active ?? false;
         if (this._screenSyncEntitiesGroup)
             this._screenSyncEntitiesGroup.sensitive = enabled;
         if (this._screenSyncConditionGroup)
             this._screenSyncConditionGroup.sensitive = enabled;
+        if (this._screenSyncTransitionSettingsGroup)
+            this._screenSyncTransitionSettingsGroup.sensitive = enabled;
         this._updateScreenSyncConditionConfigSensitivity();
         this._screenSyncIntervalRow.sensitive = enabled;
+        this._screenSyncOutputIntervalRow.sensitive = enabled;
         this._screenSyncModeRow.sensitive = enabled;
+        this._screenSyncTransitionRow.sensitive = enabled;
+        this._screenSyncThresholdRow.sensitive = enabled;
         this._screenSyncScopeRow.sensitive = enabled;
     }
 
@@ -1375,6 +1608,28 @@ class ButtonsPage extends Adw.PreferencesPage {
             this._screenSyncPreviewButton.sensitive = true;
             this._screenSyncPreviewButton.label = 'Preview';
         }
+    }
+
+    _identifyDisplays() {
+        if (this._identifyTimeoutId) {
+            GLib.source_remove(this._identifyTimeoutId);
+            this._identifyTimeoutId = null;
+        }
+
+        if (this._identifyButton)
+            this._identifyButton.sensitive = false;
+
+        // Trigger the extension-side overlay via a GSettings nonce
+        const nonce = Math.max(1, Date.now() & 0x7fffffff);
+        this._settings.set_int('screen-sync-identify-request', nonce);
+
+        // Re-enable button after overlays auto-dismiss (3s display + 0.5s fade buffer)
+        this._identifyTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 3500, () => {
+            this._identifyTimeoutId = null;
+            if (this._identifyButton)
+                this._identifyButton.sensitive = true;
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     _showScreenSyncPreviewError(message) {
@@ -1606,6 +1861,11 @@ class ButtonsPage extends Adw.PreferencesPage {
         for (const id of this._screenSyncConditionSettingsIds ?? [])
             this._settings.disconnect(id);
         this._screenSyncConditionSettingsIds = [];
+
+        if (this._identifyTimeoutId) {
+            GLib.source_remove(this._identifyTimeoutId);
+            this._identifyTimeoutId = null;
+        }
 
         this._disconnectScreenSyncConditionLiveClient();
         this._finishScreenSyncPreviewRequest();

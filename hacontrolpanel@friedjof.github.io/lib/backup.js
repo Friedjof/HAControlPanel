@@ -55,6 +55,13 @@ export function settingsToObject(settings) {
                 interval: settings.get_double('screen-sync-interval'),
                 mode: settings.get_string('screen-sync-mode'),
                 scope: settings.get_string('screen-sync-scope'),
+                transition: settings.get_string('screen-sync-transition'),
+                output_interval: settings.get_int('screen-sync-output-interval'),
+                threshold: settings.get_int('screen-sync-threshold'),
+                history_size: settings.get_int('screen-sync-history-size'),
+                ema_time: settings.get_double('screen-sync-ema-time'),
+                spring_stiffness: settings.get_double('screen-sync-spring-stiffness'),
+                spring_damping: settings.get_double('screen-sync-spring-damping'),
             },
             slider: {
                 entities: readSliderConfigs(settings),

@@ -1,10 +1,17 @@
+import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
+import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 const SAMPLE_COLS = 6;
 const SAMPLE_ROWS = 3;
-const COLOR_DIFF_THRESHOLD = 18;
+const DEFAULT_COLOR_DIFF_THRESHOLD = 18;
+const DEFAULT_OUTPUT_INTERVAL_MS = 500;
+const DEFAULT_HISTORY_SIZE = 4;
+const DEFAULT_EMA_TIME = 2.0;
+const DEFAULT_SPRING_STIFFNESS = 0.15;
+const DEFAULT_SPRING_DAMPING = 0.75;
 const CONFIG_KEYS = new Set([
     'screen-sync-enabled',
     'screen-sync-entities',
@@ -12,8 +19,81 @@ const CONFIG_KEYS = new Set([
     'screen-sync-interval',
     'screen-sync-mode',
     'screen-sync-scope',
+    'screen-sync-transition',
+    'screen-sync-output-interval',
+    'screen-sync-threshold',
+    'screen-sync-history-size',
+    'screen-sync-ema-time',
+    'screen-sync-spring-stiffness',
+    'screen-sync-spring-damping',
 ]);
 const CONNECTION_KEYS = new Set(['ha-url', 'ha-token', 'ha-verify-ssl']);
+
+function clampNumber(value, min, max, fallback) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric))
+        return fallback;
+    return Math.max(min, Math.min(max, numeric));
+}
+
+function getOutputIntervalMs(settings) {
+    return Math.round(clampNumber(
+        settings.get_int('screen-sync-output-interval'),
+        100,
+        2000,
+        DEFAULT_OUTPUT_INTERVAL_MS
+    ));
+}
+
+function getColorDiffThreshold(settings) {
+    return Math.round(clampNumber(
+        settings.get_int('screen-sync-threshold'),
+        0,
+        255,
+        DEFAULT_COLOR_DIFF_THRESHOLD
+    ));
+}
+
+function getTransitionHistorySize(settings) {
+    return Math.round(clampNumber(
+        settings.get_int('screen-sync-history-size'),
+        2,
+        8,
+        DEFAULT_HISTORY_SIZE
+    ));
+}
+
+function getEmaTransitionTimeSeconds(settings) {
+    return clampNumber(
+        settings.get_double('screen-sync-ema-time'),
+        0.1,
+        10,
+        DEFAULT_EMA_TIME
+    );
+}
+
+function getEmaAlpha(settings) {
+    const transitionTimeMs = getEmaTransitionTimeSeconds(settings) * 1000;
+    return 1 - Math.exp(-getOutputIntervalMs(settings) / transitionTimeMs);
+}
+
+function getSpringStiffness(settings) {
+    return clampNumber(
+        settings.get_double('screen-sync-spring-stiffness'),
+        0.01,
+        1,
+        DEFAULT_SPRING_STIFFNESS
+    );
+}
+
+function getSpringDamping(settings) {
+    return clampNumber(
+        settings.get_double('screen-sync-spring-damping'),
+        0.05,
+        0.99,
+        DEFAULT_SPRING_DAMPING
+    );
+}
 
 function normalizeScreenSyncCondition(condition) {
     const operator = ['=', '!=', 'regex'].includes(String(condition?.operator ?? '='))
@@ -266,14 +346,202 @@ function getPrimaryMonitorRect() {
     };
 }
 
+function getMonitorRectByIndex(index) {
+    const monitors = Main.layoutManager.monitors;
+    if (!monitors || index < 0 || index >= monitors.length)
+        return null;
+
+    const monitor = monitors[index];
+    const verticalInset = Math.min(48, Math.max(16, Math.floor(monitor.height * 0.05)));
+    const horizontalInset = Math.min(32, Math.max(12, Math.floor(monitor.width * 0.04)));
+
+    return {
+        x: monitor.x + horizontalInset,
+        y: monitor.y + verticalInset,
+        width: Math.max(1, monitor.width - horizontalInset * 2),
+        height: Math.max(1, monitor.height - verticalInset * 2),
+    };
+}
+
+// ─── Transition interpolators ─────────────────────────────────────────────────
+//
+// Each entry in INTERPOLATORS defines one color-transition mode.
+//
+// Interface:
+//   historySize  {number|function} — how many sampled entries to keep in the ring buffer
+//   createState? {function} — returns fresh mutable state (for stateful modes)
+//   evaluate(history, now, state, settings) → [R,G,B] | null
+//     history  — array of { color: [R,G,B], time: number(ms) }, newest last
+//     now      — Date.now() in ms
+//     state    — object returned by createState (or {} if absent)
+//     settings — current GSettings instance for dynamic parameters
+//
+// To add a new mode: insert an entry here and add the label to
+// TRANSITION_LABELS in prefs/buttonsPage.js. No other files need changing.
+//
+
+// Catmull-Rom helpers (used by the catmull-rom interpolator below)
+function _crChannel(p0, p1, p2, p3, t) {
+    const t2 = t * t;
+    const t3 = t2 * t;
+    return 0.5 * (
+        (-t3 + 2 * t2 - t)      * p0 +
+        (3 * t3 - 5 * t2 + 2)   * p1 +
+        (-3 * t3 + 4 * t2 + t)  * p2 +
+        (t3 - t2)                * p3
+    );
+}
+function _crColor(p0, p1, p2, p3, t) {
+    return [
+        clampByte(_crChannel(p0[0], p1[0], p2[0], p3[0], t)),
+        clampByte(_crChannel(p0[1], p1[1], p2[1], p3[1], t)),
+        clampByte(_crChannel(p0[2], p1[2], p2[2], p3[2], t)),
+    ];
+}
+
+// Common time-based interpolation helper: returns t ∈ [0,1] between the last
+// two history entries, clamped to 1 once the newer sample's timestamp is passed.
+function _timeFraction(history, now) {
+    const n = history.length;
+    if (n < 2) return 1;
+    const prev = history[n - 2];
+    const curr = history[n - 1];
+    const span = curr.time - prev.time;
+    return span > 0 ? Math.min(1, Math.max(0, (now - prev.time) / span)) : 1;
+}
+
+function getInterpolatorHistorySize(interpolator, settings) {
+    const configured = typeof interpolator?.historySize === 'function'
+        ? interpolator.historySize(settings)
+        : interpolator?.historySize;
+    return Math.max(1, Math.round(Number(configured) || 1));
+}
+
+export const INTERPOLATORS = new Map([
+
+    // ── off ─────────────────────────────────────────────────────────────────
+    // No interpolation — returns the latest sampled color immediately.
+    ['off', {
+        historySize: 1,
+        evaluate(history) {
+            return history.length ? history[history.length - 1].color : null;
+        },
+    }],
+
+    // ── linear ──────────────────────────────────────────────────────────────
+    // Straight-line interpolation between the previous and current sample.
+    // Clean and predictable; can feel mechanical on sharp cuts.
+    ['linear', {
+        historySize: 2,
+        evaluate(history, now) {
+            const n = history.length;
+            if (n === 0) return null;
+            if (n === 1) return history[0].color;
+            const t = _timeFraction(history, now);
+            const a = history[n - 2].color;
+            const b = history[n - 1].color;
+            return [
+                clampByte(a[0] + t * (b[0] - a[0])),
+                clampByte(a[1] + t * (b[1] - a[1])),
+                clampByte(a[2] + t * (b[2] - a[2])),
+            ];
+        },
+    }],
+
+    // ── ema ─────────────────────────────────────────────────────────────────
+    // Exponential Moving Average — each output tick moves the rendered color
+    // ALPHA percent toward the target. α = 1 − e^(−dt/τ), where dt is the
+    // configured output interval and τ is the configured transition time.
+    // Great for very slow, organic ambient scenes.
+    ['ema', {
+        historySize: 1,
+        createState: () => ({ rendered: null }),
+        evaluate(history, _now, state, settings) {
+            const target = history.length ? history[history.length - 1].color : null;
+            if (!target) return null;
+            if (!state.rendered) {
+                state.rendered = [...target];
+                return state.rendered;
+            }
+            const alpha = getEmaAlpha(settings);
+            state.rendered = state.rendered.map((c, i) =>
+                clampByte(c + alpha * (target[i] - c))
+            );
+            return state.rendered;
+        },
+    }],
+
+    // ── moving-average ───────────────────────────────────────────────────────
+    // Simple arithmetic mean over the last N samples.  Dampens rapid flicker
+    // at the cost of a fixed lag of N × sampleInterval / 2.
+    ['moving-average', {
+        historySize: settings => getTransitionHistorySize(settings),
+        evaluate(history) {
+            return averageColors(history.map(e => e.color));
+        },
+    }],
+
+    // ── catmull-rom ──────────────────────────────────────────────────────────
+    // Cubic Catmull-Rom spline over the most recent samples. The oldest
+    // retained sample shapes the incoming tangent, so a larger history keeps
+    // more motion memory and feels smoother but less reactive.
+    ['catmull-rom', {
+        historySize: settings => getTransitionHistorySize(settings),
+        evaluate(history, now) {
+            const n = history.length;
+            if (n === 0) return null;
+            if (n === 1) return history[0].color;
+            const t  = _timeFraction(history, now);
+            const p1 = history[n - 2].color;
+            const p2 = history[n - 1].color;
+            const p0 = n >= 3 ? history[0].color : p1;
+            const p3 = p2; // phantom: arrive smoothly in the p1→p2 direction
+            return _crColor(p0, p1, p2, p3, t);
+        },
+    }],
+
+    // ── spring ───────────────────────────────────────────────────────────────
+    // Spring physics: each channel has momentum that accelerates toward the
+    // target and is damped each tick.  Produces a natural elastic feel; a
+    // slight overshoot is possible and intentional.
+    ['spring', {
+        historySize: 1,
+        createState: () => ({ rendered: null, velocity: [0, 0, 0] }),
+        evaluate(history, _now, state, settings) {
+            const target = history.length ? history[history.length - 1].color : null;
+            if (!target) return null;
+            if (!state.rendered) {
+                state.rendered = [...target];
+                return state.rendered;
+            }
+            const stiffness = getSpringStiffness(settings);
+            const damping = getSpringDamping(settings);
+            state.rendered = state.rendered.map((c, i) => {
+                const force  = (target[i] - c) * stiffness;
+                state.velocity[i] = state.velocity[i] * damping + force;
+                const next   = c + state.velocity[i];
+                // Absorb velocity at boundaries to prevent sticking
+                if (next < 0 || next > 255) state.velocity[i] = 0;
+                return clampByte(next);
+            });
+            return state.rendered;
+        },
+    }],
+]);
+
 export class ScreenSyncController {
     constructor(settings, haClient) {
         this._settings = settings;
         this._haClient = haClient;
         this._screenshot = new Shell.Screenshot();
         this._sourceId = null;
+        this._outputSourceId = null;
         this._settingsChangedId = null;
         this._running = false;
+        this._outputRunning = false;
+        this._colorHistory = [];
+        this._interpolator = this._loadInterpolator();
+        this._interpolatorState = this._interpolator.createState?.() ?? {};
         this._lastSentColor = null;
         this._lastError = '';
         this._condition = normalizeScreenSyncCondition({});
@@ -285,6 +553,11 @@ export class ScreenSyncController {
         this._haClient.connectLive(this._liveStateHandler);
 
         this._settingsChangedId = this._settings.connect('changed', (_settings, key) => {
+            if (key === 'screen-sync-identify-request') {
+                this._handleIdentifyRequest();
+                return;
+            }
+
             if (key === 'screen-sync-preview-request') {
                 void this._handlePreviewRequest();
                 return;
@@ -303,6 +576,8 @@ export class ScreenSyncController {
     }
 
     destroy() {
+        this._clearIdentifyOverlays();
+
         if (this._liveStateHandler) {
             this._haClient.disconnectLive(this._liveStateHandler);
             this._liveStateHandler = null;
@@ -316,6 +591,95 @@ export class ScreenSyncController {
         if (this._sourceId) {
             GLib.source_remove(this._sourceId);
             this._sourceId = null;
+        }
+
+        if (this._outputSourceId) {
+            GLib.source_remove(this._outputSourceId);
+            this._outputSourceId = null;
+        }
+    }
+
+    _handleIdentifyRequest() {
+        const requestId = this._settings.get_int('screen-sync-identify-request');
+        if (requestId <= 0)
+            return;
+
+        this._clearIdentifyOverlays();
+
+        const monitors = Main.layoutManager.monitors;
+        this._identifyOverlays = [];
+
+        for (let i = 0; i < monitors.length; i++) {
+            const overlay = this._createIdentifyOverlay(monitors[i], i + 1);
+            Main.uiGroup.add_child(overlay);
+            this._identifyOverlays.push(overlay);
+            overlay.opacity = 0;
+            overlay.ease({
+                opacity: 255,
+                duration: 250,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            });
+        }
+
+        this._identifySourceId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 3000, () => {
+            this._identifySourceId = null;
+            this._fadeOutIdentifyOverlays();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _createIdentifyOverlay(monitor, number) {
+        const SIZE = 200;
+        const container = new St.Widget({
+            x: monitor.x + Math.round((monitor.width - SIZE) / 2),
+            y: monitor.y + Math.round((monitor.height - SIZE) / 2),
+            width: SIZE,
+            height: SIZE,
+            reactive: false,
+        });
+
+        const bin = new St.Bin({
+            style_class: 'osd-window',
+            x_expand: true,
+            y_expand: true,
+        });
+        container.add_child(bin);
+
+        const label = new St.Label({
+            text: String(number),
+            style: 'font-size: 96px; font-weight: bold; text-align: center;',
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        bin.set_child(label);
+
+        return container;
+    }
+
+    _clearIdentifyOverlays() {
+        if (this._identifySourceId) {
+            GLib.source_remove(this._identifySourceId);
+            this._identifySourceId = null;
+        }
+        if (this._identifyOverlays) {
+            for (const overlay of this._identifyOverlays)
+                Main.uiGroup.remove_child(overlay);
+            this._identifyOverlays = null;
+        }
+    }
+
+    _fadeOutIdentifyOverlays() {
+        if (!this._identifyOverlays)
+            return;
+        const overlays = this._identifyOverlays;
+        this._identifyOverlays = null;
+        for (const overlay of overlays) {
+            overlay.ease({
+                opacity: 0,
+                duration: 400,
+                mode: Clutter.AnimationMode.EASE_IN_QUAD,
+                onComplete: () => Main.uiGroup.remove_child(overlay),
+            });
         }
     }
 
@@ -429,26 +793,51 @@ export class ScreenSyncController {
             (!this._condition.enabled || !this._condition.entity_id || (this._conditionStateKnown && this._conditionSatisfied));
     }
 
+    _loadInterpolator() {
+        const key = this._settings.get_string('screen-sync-transition') || 'catmull-rom';
+        return INTERPOLATORS.get(key) ?? INTERPOLATORS.get('catmull-rom');
+    }
+
     _restart() {
         if (this._sourceId) {
             GLib.source_remove(this._sourceId);
             this._sourceId = null;
         }
 
+        if (this._outputSourceId) {
+            GLib.source_remove(this._outputSourceId);
+            this._outputSourceId = null;
+        }
+
+        this._interpolator = this._loadInterpolator();
+        this._interpolatorState = this._interpolator.createState?.() ?? {};
         this._lastSentColor = null;
+        this._colorHistory = [];
 
         if (!this._shouldRun())
             return;
 
         const intervalMs = Math.max(500, Math.round(this._settings.get_double('screen-sync-interval') * 1000));
+        const outputIntervalMs = getOutputIntervalMs(this._settings);
+
+        // Sampling loop: reads the screen every N seconds and appends to history
         this._sourceId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, intervalMs, () => {
             void this._tick();
+            return GLib.SOURCE_CONTINUE;
+        });
+
+        // Output loop: evaluates the active interpolator at the configured cadence and sends to HA
+        this._outputSourceId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, outputIntervalMs, () => {
+            void this._outputTick();
             return GLib.SOURCE_CONTINUE;
         });
 
         void this._tick();
     }
 
+    // Sampling tick — runs every N seconds.
+    // Reads the screen, computes the color for the configured mode, and appends it
+    // to the rolling history used by the transition output loop.
     async _tick() {
         if (this._running || !this._shouldRun())
             return;
@@ -457,19 +846,48 @@ export class ScreenSyncController {
 
         try {
             const colors = await this._sampleColors();
-            if (!colors.length)
+            if (!colors.length || !this._shouldRun())
                 return;
 
             const mode = this._settings.get_string('screen-sync-mode');
             const nextColor = colorForMode(mode, colors);
-
             if (!nextColor)
                 return;
 
-            if (!this._shouldRun())
+            this._colorHistory.push({ color: nextColor, time: Date.now() });
+            const maxHistory = getInterpolatorHistorySize(this._interpolator, this._settings);
+            if (this._colorHistory.length > maxHistory)
+                this._colorHistory.splice(0, this._colorHistory.length - maxHistory);
+
+        } catch (e) {
+            const message = e?.message ?? String(e);
+            if (message !== this._lastError) {
+                this._lastError = message;
+                console.error(`[HAControlPanel] Screen sync sampling failed: ${message}`);
+            }
+        } finally {
+            this._running = false;
+        }
+    }
+
+    // Output tick — runs every configured output interval.
+    // Evaluates the active transition over the color history and sends the
+    // interpolated color to Home Assistant when it has changed enough.
+    async _outputTick() {
+        if (this._outputRunning || !this._shouldRun() || !this._colorHistory.length)
+            return;
+
+        this._outputRunning = true;
+
+        try {
+            const color = this._interpolator.evaluate(
+                this._colorHistory, Date.now(), this._interpolatorState, this._settings
+            );
+            if (!color || !this._shouldRun())
                 return;
 
-            if (colorDistance(this._lastSentColor, nextColor) < COLOR_DIFF_THRESHOLD)
+            const distance = colorDistance(this._lastSentColor, color);
+            if (distance === 0 || distance < getColorDiffThreshold(this._settings))
                 return;
 
             const entities = this._getActiveEntities();
@@ -478,19 +896,19 @@ export class ScreenSyncController {
 
             await this._haClient.callService('light', 'turn_on', {
                 entity_id: entities,
-                rgb_color: nextColor,
+                rgb_color: color,
             });
 
-            this._lastSentColor = nextColor;
+            this._lastSentColor = [...color];
             this._lastError = '';
         } catch (e) {
             const message = e?.message ?? String(e);
             if (message !== this._lastError) {
                 this._lastError = message;
-                console.error(`[HAControlPanel] Screen sync failed: ${message}`);
+                console.error(`[HAControlPanel] Screen sync output failed: ${message}`);
             }
         } finally {
-            this._running = false;
+            this._outputRunning = false;
         }
     }
 
@@ -529,9 +947,19 @@ export class ScreenSyncController {
     }
 
     async _sampleColors() {
-        const rect = this._settings.get_string('screen-sync-scope') === 'stage'
-            ? getStageRect()
-            : getPrimaryMonitorRect();
+        const scope = this._settings.get_string('screen-sync-scope');
+        let rect;
+
+        if (scope === 'stage') {
+            rect = getStageRect();
+        } else if (scope.startsWith('monitor-')) {
+            const idx = parseInt(scope.slice('monitor-'.length), 10);
+            rect = Number.isFinite(idx)
+                ? (getMonitorRectByIndex(idx) ?? getPrimaryMonitorRect())
+                : getPrimaryMonitorRect();
+        } else {
+            rect = getPrimaryMonitorRect();
+        }
 
         if (rect.width <= 0 || rect.height <= 0)
             return [];
