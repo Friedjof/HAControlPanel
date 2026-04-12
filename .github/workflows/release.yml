@@ -11,6 +11,9 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-24.04
+    env:
+      EGO_USERNAME: ${{ secrets.EGO_USERNAME }}
+      EGO_PASSWORD: ${{ secrets.EGO_PASSWORD }}
 
     steps:
       - name: Check out repository
@@ -23,6 +26,33 @@ jobs:
 
       - name: Build extension bundle
         run: make pack
+
+      - name: Skip EGO upload when secrets are missing
+        if: ${{ env.EGO_USERNAME == '' || env.EGO_PASSWORD == '' }}
+        run: echo "EGO_USERNAME or EGO_PASSWORD is not configured; skipping extensions.gnome.org upload."
+
+      - name: Install EGO upload dependencies
+        if: ${{ env.EGO_USERNAME != '' && env.EGO_PASSWORD != '' }}
+        run: |
+          sudo apt-get install -y gnome-shell
+
+      - name: Verify gnome-extensions upload support
+        if: ${{ env.EGO_USERNAME != '' && env.EGO_PASSWORD != '' }}
+        run: |
+          if ! gnome-extensions help upload >/dev/null 2>&1; then
+            echo "This runner does not provide a gnome-extensions CLI with the upload subcommand."
+            echo "Update the runner image or switch this workflow to a dedicated upload action."
+            exit 1
+          fi
+
+      - name: Upload to extensions.gnome.org
+        if: ${{ env.EGO_USERNAME != '' && env.EGO_PASSWORD != '' }}
+        run: |
+          gnome-extensions upload \
+            --accept-tos \
+            --user "${EGO_USERNAME}" \
+            --password "${EGO_PASSWORD}" \
+            dist/hacontrolpanel@friedjof.github.io.shell-extension.zip
 
       - name: Create GitHub release
         env:
