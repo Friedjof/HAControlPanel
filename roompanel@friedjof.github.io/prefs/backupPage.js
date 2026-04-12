@@ -22,6 +22,13 @@ function applyObjectToSettings(obj, settings) {
     if (color.service !== undefined) settings.set_string('color-service', String(color.service));
     if (color.attribute !== undefined) settings.set_string('color-attribute', String(color.attribute));
 
+    const screenSync = obj.panel?.screen_sync ?? {};
+    if (screenSync.enabled !== undefined) settings.set_boolean('screen-sync-enabled', !!screenSync.enabled);
+    if (screenSync.entity !== undefined) settings.set_string('screen-sync-entity', String(screenSync.entity));
+    if (screenSync.interval !== undefined) settings.set_double('screen-sync-interval', Number(screenSync.interval) || 2.0);
+    if (screenSync.mode !== undefined) settings.set_string('screen-sync-mode', String(screenSync.mode));
+    if (screenSync.scope !== undefined) settings.set_string('screen-sync-scope', String(screenSync.scope));
+
     const slider = obj.panel?.slider ?? {};
     if (Array.isArray(slider.entities))
         settings.set_string('slider-entities-config', JSON.stringify(slider.entities));

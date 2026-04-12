@@ -2,6 +2,7 @@ import GLib from 'gi://GLib';
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { HaClient } from './lib/haClient.js';
+import { ScreenSyncController } from './lib/screenSyncController.js';
 import { RoomPanelIndicator } from './ui/panelIndicator.js';
 import { serialize } from './lib/yaml.js';
 import { getResolvedBackupPath, settingsToObject } from './lib/backup.js';
@@ -11,10 +12,12 @@ export default class RoomPanelExtension extends Extension {
         this._settings = this.getSettings();
         this._haClient = new HaClient();
         this._indicator = null;
+        this._screenSyncController = null;
         this._settingsChangedId = null;
 
         this._applyCredentials();
         this._createIndicator();
+        this._createScreenSyncController();
         this._setupAutoBackup();
 
         if (this._settings.get_boolean('auto-yaml-backup'))
@@ -34,6 +37,10 @@ export default class RoomPanelExtension extends Extension {
             this._settings, this._haClient, () => void this._openPreferencesSafely()
         );
         Main.panel.addToStatusArea(this.uuid, this._indicator);
+    }
+
+    _createScreenSyncController() {
+        this._screenSyncController = new ScreenSyncController(this._settings, this._haClient);
     }
 
     async _openPreferencesSafely() {
@@ -91,6 +98,11 @@ export default class RoomPanelExtension extends Extension {
         if (this._indicator) {
             this._indicator.destroy();
             this._indicator = null;
+        }
+
+        if (this._screenSyncController) {
+            this._screenSyncController.destroy();
+            this._screenSyncController = null;
         }
 
         if (this._haClient) {

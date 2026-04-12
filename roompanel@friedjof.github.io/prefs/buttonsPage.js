@@ -1,8 +1,16 @@
 import Adw from 'gi://Adw';
+import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk';
 import GObject from 'gi://GObject';
 import { haDataStore } from './haDataStore.js';
-import { escapeMarkup, getEntityDomain, findReplacementEntityId } from './utils.js';
+import {
+    escapeMarkup,
+    getEntityDomain,
+    findReplacementEntityId,
+    createStringList,
+    getDropDownValue,
+    setDropDownValue,
+} from './utils.js';
 import { readButtonsConfig, readSliderConfigs } from '../lib/configAdapters.js';
 import { EntitySearchPopover } from './popovers/entitySearch.js';
 import { ServiceSearchPopover } from './popovers/serviceSearch.js';
@@ -24,6 +32,12 @@ class ButtonsPage extends Adw.PreferencesPage {
         this._services = haDataStore.getServices();
         this._configs = this._loadConfigs();
         this._haDataChangedId = haDataStore.connect('changed', () => this._applyHAData());
+        this._screenSyncPreviewPendingRequest = 0;
+        this._screenSyncPreviewTimeoutId = null;
+        this._screenSyncPreviewResponseId = settings.connect(
+            'changed::screen-sync-preview-response',
+            () => this._handleScreenSyncPreviewResponse()
+        );
 
         const infoGroup = new Adw.PreferencesGroup({
             title: 'Entity Search',
@@ -83,6 +97,117 @@ class ButtonsPage extends Adw.PreferencesPage {
             settings.set_strv('color-entities', entities);
             this._rebuildColorEntityRows(settings);
         });
+
+        // ── Screen Sync Group ────────────────────────────────────────
+        const screenSyncGroup = new Adw.PreferencesGroup({
+            title: 'Screen Sync',
+            description: 'Sample the screen periodically and send the resulting RGB color to a Home Assistant light with light.turn_on.',
+        });
+        this.add(screenSyncGroup);
+
+        this._screenSyncEnabledRow = new Adw.SwitchRow({
+            title: 'Enable Screen Sync',
+            subtitle: 'Runs in the GNOME Shell process and updates the target light automatically',
+            active: settings.get_boolean('screen-sync-enabled'),
+        });
+        screenSyncGroup.add(this._screenSyncEnabledRow);
+        this._screenSyncEnabledRow.connect('notify::active', () => {
+            settings.set_boolean('screen-sync-enabled', this._screenSyncEnabledRow.active);
+            this._updateScreenSyncSensitivity();
+        });
+
+        this._screenSyncEntityRow = this._makeEntityRow(
+            'Target Light Entity',
+            'screen-sync-entity',
+            settings,
+            () => 'light'
+        );
+        this._screenSyncEntityRow.set_tooltip_text('Target light entity that receives light.turn_on with rgb_color');
+        screenSyncGroup.add(this._screenSyncEntityRow);
+
+        const intervalRow = new Adw.ActionRow({
+            title: 'Interval',
+            subtitle: 'How often the screen color is sampled',
+        });
+        this._screenSyncIntervalSpin = new Gtk.SpinButton({
+            adjustment: new Gtk.Adjustment({
+                lower: 0.5,
+                upper: 10.0,
+                step_increment: 0.5,
+                page_increment: 1.0,
+                value: settings.get_double('screen-sync-interval') || 2.0,
+            }),
+            digits: 1,
+            valign: Gtk.Align.CENTER,
+        });
+        this._screenSyncIntervalSpin.connect('value-changed', () =>
+            settings.set_double('screen-sync-interval', this._screenSyncIntervalSpin.get_value()));
+        intervalRow.add_suffix(this._screenSyncIntervalSpin);
+        intervalRow.add_suffix(new Gtk.Label({ label: 's', valign: Gtk.Align.CENTER }));
+        screenSyncGroup.add(intervalRow);
+        this._screenSyncIntervalRow = intervalRow;
+
+        const modeRow = new Adw.ActionRow({
+            title: 'Color Mode',
+            subtitle: 'Average blends everything, dominant picks the biggest bucket, vibrant and accent prefer more saturated colors',
+        });
+        this._screenSyncModeModel = createStringList(['dominant', 'average', 'vibrant', 'accent']);
+        this._screenSyncModeDropdown = new Gtk.DropDown({
+            model: this._screenSyncModeModel,
+            valign: Gtk.Align.CENTER,
+        });
+        setDropDownValue(
+            this._screenSyncModeDropdown,
+            this._screenSyncModeModel,
+            settings.get_string('screen-sync-mode') || 'dominant'
+        );
+        this._screenSyncModeDropdown.connect('notify::selected-item', () =>
+            settings.set_string('screen-sync-mode', getDropDownValue(this._screenSyncModeDropdown) || 'dominant'));
+        modeRow.add_suffix(this._screenSyncModeDropdown);
+        modeRow.activatable_widget = this._screenSyncModeDropdown;
+        screenSyncGroup.add(modeRow);
+        this._screenSyncModeRow = modeRow;
+
+        const scopeRow = new Adw.ActionRow({
+            title: 'Sampling Scope',
+            subtitle: 'Primary monitor avoids other displays; whole stage includes everything GNOME renders',
+        });
+        this._screenSyncScopeModel = createStringList(['primary', 'stage']);
+        this._screenSyncScopeDropdown = new Gtk.DropDown({
+            model: this._screenSyncScopeModel,
+            valign: Gtk.Align.CENTER,
+        });
+        setDropDownValue(
+            this._screenSyncScopeDropdown,
+            this._screenSyncScopeModel,
+            settings.get_string('screen-sync-scope') || 'primary'
+        );
+        this._screenSyncScopeDropdown.connect('notify::selected-item', () =>
+            settings.set_string('screen-sync-scope', getDropDownValue(this._screenSyncScopeDropdown) || 'primary'));
+        scopeRow.add_suffix(this._screenSyncScopeDropdown);
+        scopeRow.activatable_widget = this._screenSyncScopeDropdown;
+        screenSyncGroup.add(scopeRow);
+        this._screenSyncScopeRow = scopeRow;
+
+        screenSyncGroup.add(new Adw.ActionRow({
+            title: 'Output',
+            subtitle: 'Prototype output is fixed to light.turn_on with rgb_color on the selected light entity.',
+            activatable: false,
+        }));
+
+        const previewRow = new Adw.ActionRow({
+            title: 'Preview Sample',
+            subtitle: 'Shows which colors all sampling modes would currently produce',
+        });
+        this._screenSyncPreviewButton = new Gtk.Button({
+            label: 'Preview',
+            css_classes: ['suggested-action'],
+            valign: Gtk.Align.CENTER,
+        });
+        this._screenSyncPreviewButton.connect('clicked', () => this._requestScreenSyncPreview());
+        previewRow.add_suffix(this._screenSyncPreviewButton);
+        screenSyncGroup.add(previewRow);
+        this._updateScreenSyncSensitivity();
 
         // ── Slider Group ──────────────────────────────────────────────
         this._sliderEntitiesGroup = new Adw.PreferencesGroup({
@@ -443,6 +568,8 @@ class ButtonsPage extends Adw.PreferencesPage {
         for (const row of (this._sliderEntityEntryRows || []))
             row._entityPopover?.setEntities(this._entities);
 
+        this._screenSyncEntityRow?._entityPopover?.setEntities(this._entities);
+
         const configs = this._loadSliderConfigs(this._settings);
         for (let i = 0; i < configs.length && i < (this._sliderEntityRows?.length ?? 0); i++) {
             const entityId = configs[i].entity_id;
@@ -510,6 +637,185 @@ class ButtonsPage extends Adw.PreferencesPage {
         this._distributeEntities();
         this._distributeServices();
         this._repairLoadedConfigurations();
+    }
+
+    _updateScreenSyncSensitivity() {
+        const enabled = this._screenSyncEnabledRow?.active ?? false;
+        this._screenSyncEntityRow.sensitive = enabled;
+        this._screenSyncIntervalRow.sensitive = enabled;
+        this._screenSyncModeRow.sensitive = enabled;
+        this._screenSyncScopeRow.sensitive = enabled;
+    }
+
+    _requestScreenSyncPreview() {
+        if (this._screenSyncPreviewPendingRequest)
+            return;
+
+        this._screenSyncPreviewPendingRequest = this._settings.get_int('screen-sync-preview-request') + 1;
+        this._screenSyncPreviewButton.sensitive = false;
+        this._screenSyncPreviewButton.label = 'Sampling…';
+        this._settings.set_string('screen-sync-preview-error', '');
+        this._settings.set_string('screen-sync-preview-dominant', '');
+        this._settings.set_string('screen-sync-preview-average', '');
+        this._settings.set_string('screen-sync-preview-vibrant', '');
+        this._settings.set_string('screen-sync-preview-accent', '');
+        this._settings.set_int('screen-sync-preview-request', this._screenSyncPreviewPendingRequest);
+
+        this._screenSyncPreviewTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 5000, () => {
+            const stillPending = this._screenSyncPreviewPendingRequest !== 0;
+            this._finishScreenSyncPreviewRequest();
+            if (stillPending) {
+                this._showScreenSyncPreviewError(
+                    'No preview response arrived from the running extension. The preview only works while RoomPanel is enabled in GNOME Shell.'
+                );
+            }
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _handleScreenSyncPreviewResponse() {
+        const responseId = this._settings.get_int('screen-sync-preview-response');
+        if (!this._screenSyncPreviewPendingRequest || responseId !== this._screenSyncPreviewPendingRequest)
+            return;
+
+        const error = this._settings.get_string('screen-sync-preview-error').trim();
+        const dominant = this._settings.get_string('screen-sync-preview-dominant').trim();
+        const average = this._settings.get_string('screen-sync-preview-average').trim();
+        const vibrant = this._settings.get_string('screen-sync-preview-vibrant').trim();
+        const accent = this._settings.get_string('screen-sync-preview-accent').trim();
+
+        this._finishScreenSyncPreviewRequest();
+
+        if (error) {
+            this._showScreenSyncPreviewError(error);
+            return;
+        }
+
+        this._showScreenSyncPreviewDialog({ dominant, average, vibrant, accent });
+    }
+
+    _finishScreenSyncPreviewRequest() {
+        if (this._screenSyncPreviewTimeoutId) {
+            GLib.source_remove(this._screenSyncPreviewTimeoutId);
+            this._screenSyncPreviewTimeoutId = null;
+        }
+
+        this._screenSyncPreviewPendingRequest = 0;
+        if (this._screenSyncPreviewButton) {
+            this._screenSyncPreviewButton.sensitive = true;
+            this._screenSyncPreviewButton.label = 'Preview';
+        }
+    }
+
+    _showScreenSyncPreviewError(message) {
+        const dialog = new Adw.MessageDialog({
+            transient_for: this.get_root(),
+            heading: 'Screen Sync Preview Failed',
+            body: String(message ?? 'Unknown error'),
+        });
+        dialog.add_response('ok', 'OK');
+        dialog.present();
+    }
+
+    _showScreenSyncPreviewDialog(preview) {
+        const dialog = new Adw.Dialog({
+            title: 'Screen Sync Preview',
+            content_width: 520,
+        });
+
+        const content = new Gtk.Box({
+            orientation: Gtk.Orientation.VERTICAL,
+            spacing: 16,
+            margin_top: 18,
+            margin_bottom: 18,
+            margin_start: 18,
+            margin_end: 18,
+        });
+        dialog.set_child(content);
+
+        const colorsGrid = new Gtk.Grid({
+            row_spacing: 12,
+            column_spacing: 12,
+            column_homogeneous: true,
+        });
+        colorsGrid.attach(this._createScreenSyncPreviewSwatch('Dominant', preview.dominant), 0, 0, 1, 1);
+        colorsGrid.attach(this._createScreenSyncPreviewSwatch('Average', preview.average), 1, 0, 1, 1);
+        colorsGrid.attach(this._createScreenSyncPreviewSwatch('Vibrant', preview.vibrant), 0, 1, 1, 1);
+        colorsGrid.attach(this._createScreenSyncPreviewSwatch('Accent', preview.accent), 1, 1, 1, 1);
+        content.append(colorsGrid);
+
+        const currentMode = this._settings.get_string('screen-sync-mode') || 'dominant';
+        const explanation = new Gtk.Label({
+            wrap: true,
+            xalign: 0,
+            selectable: false,
+            label: `Average blends all sampled pixels equally and often drifts toward grey. Dominant groups sampled pixels into coarse buckets and picks the largest cluster. Vibrant weights saturated and bright buckets more strongly to avoid washed-out colors. Accent heavily prefers the most saturated bright samples, so it pushes the result furthest toward vivid light colors. Screen Sync currently uses: ${currentMode}.`,
+        });
+        explanation.add_css_class('dim-label');
+        content.append(explanation);
+
+        const closeButton = new Gtk.Button({
+            label: 'Close',
+            css_classes: ['suggested-action'],
+            halign: Gtk.Align.CENTER,
+        });
+        closeButton.connect('clicked', () => dialog.close());
+        content.append(closeButton);
+
+        dialog.present(this.get_root());
+    }
+
+    _createScreenSyncPreviewSwatch(title, hex) {
+        const box = new Gtk.Box({
+            orientation: Gtk.Orientation.VERTICAL,
+            spacing: 8,
+            hexpand: true,
+        });
+
+        const titleLabel = new Gtk.Label({
+            label: title,
+            xalign: 0.5,
+            halign: Gtk.Align.CENTER,
+        });
+        titleLabel.add_css_class('heading');
+        box.append(titleLabel);
+
+        const [red, green, blue] = this._parsePreviewHex(hex);
+        const area = new Gtk.DrawingArea({
+            content_width: 160,
+            content_height: 88,
+            hexpand: true,
+            vexpand: false,
+        });
+        area.set_draw_func((_area, cr, width, height) => {
+            cr.setSourceRGBA(red / 255, green / 255, blue / 255, 1);
+            cr.rectangle(0, 0, width, height);
+            cr.fill();
+        });
+        box.append(area);
+
+        const valueLabel = new Gtk.Label({
+            label: hex || 'No sample',
+            xalign: 0.5,
+            halign: Gtk.Align.CENTER,
+        });
+        valueLabel.add_css_class('dim-label');
+        box.append(valueLabel);
+
+        return box;
+    }
+
+    _parsePreviewHex(hex) {
+        const match = String(hex ?? '').trim().match(/^#?([0-9a-fA-F]{6})$/);
+        if (!match)
+            return [80, 80, 80];
+
+        const value = match[1];
+        return [
+            parseInt(value.slice(0, 2), 16),
+            parseInt(value.slice(2, 4), 16),
+            parseInt(value.slice(4, 6), 16),
+        ];
     }
 
     // ── Button list ──────────────────────────────────────────────────
@@ -593,6 +899,13 @@ class ButtonsPage extends Adw.PreferencesPage {
             haDataStore.disconnect(this._haDataChangedId);
             this._haDataChangedId = null;
         }
+
+        if (this._screenSyncPreviewResponseId) {
+            this._settings.disconnect(this._screenSyncPreviewResponseId);
+            this._screenSyncPreviewResponseId = null;
+        }
+
+        this._finishScreenSyncPreviewRequest();
 
         super.vfunc_unroot();
     }
