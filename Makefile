@@ -1,9 +1,9 @@
-UUID      = roompanel@friedjof.github.io
+UUID      = hacontrolpanel@friedjof.github.io
 DEST      = $(HOME)/.local/share/gnome-shell/extensions/$(UUID)
 SRC       = $(UUID)
 LOG       = /tmp/roompanel-shell.log
 OUT_DIR   ?= dist
-SCHEMA    = schemas/org.gnome.shell.extensions.roompanel.gschema.xml
+SCHEMA    = schemas/org.gnome.shell.extensions.hacontrolpanel.gschema.xml
 ZIP       = $(OUT_DIR)/$(UUID).shell-extension.zip
 ZIP_ABS   = $(abspath $(ZIP))
 

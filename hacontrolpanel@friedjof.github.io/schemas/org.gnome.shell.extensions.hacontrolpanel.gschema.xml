@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
-  <schema id="org.gnome.shell.extensions.roompanel"
-          path="/org/gnome/shell/extensions/roompanel/">
+  <schema id="org.gnome.shell.extensions.hacontrolpanel"
+          path="/org/gnome/shell/extensions/hacontrolpanel/">
 
     <!-- Home Assistant Connection -->
     <key name="ha-url" type="s">

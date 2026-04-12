@@ -3,7 +3,6 @@
 HAControlPanel is a GNOME Shell extension that adds a compact Home Assistant control panel to the top bar. It is built for quick everyday actions: lights, sliders, custom service buttons, read-only sensor tiles, and optional screen sync for RGB lights.
 
 > This repository is currently in beta. Significant parts of the project are developed with AI assistance, so behavior, UX, and internal structure may still change quickly.
-> For compatibility, the extension UUID and bundle name currently still use `roompanel@friedjof.github.io`.
 
 <table>
   <tr>
@@ -45,9 +44,9 @@ HAControlPanel is a GNOME Shell extension that adds a compact Home Assistant con
 
 Until the extension is published on extensions.gnome.org, install it from the GitHub Releases page.
 
-1. Download `roompanel@friedjof.github.io.shell-extension.zip` from the latest release.
-2. Install it with `gnome-extensions install --force roompanel@friedjof.github.io.shell-extension.zip`.
-3. Enable it with `gnome-extensions enable roompanel@friedjof.github.io` or through the Extensions app.
+1. Download `hacontrolpanel@friedjof.github.io.shell-extension.zip` from the latest release.
+2. Install it with `gnome-extensions install --force hacontrolpanel@friedjof.github.io.shell-extension.zip`.
+3. Enable it with `gnome-extensions enable hacontrolpanel@friedjof.github.io` or through the Extensions app.
 
 ## ⚙️ Configuration
 
@@ -65,7 +64,7 @@ The backup validator checks for broken or suspicious values before import or syn
 The extension source lives in:
 
 ```text
-roompanel@friedjof.github.io/
+hacontrolpanel@friedjof.github.io/
 ```
 
 Useful commands:
@@ -80,12 +79,12 @@ make log
 
 - `make install` compiles schemas and copies the extension into the local GNOME Shell extensions directory
 - `make reinstall` removes and installs again
-- `make pack` creates `dist/roompanel@friedjof.github.io.shell-extension.zip`
+- `make pack` creates `dist/hacontrolpanel@friedjof.github.io.shell-extension.zip`
 - `make run` starts a nested GNOME Shell session and writes logs to `/tmp/roompanel-shell.log`
 - `make log` prints the last nested-shell log
 
 ## 📝 Notes
 
-- `roompanel@friedjof.github.io/schemas/gschemas.compiled` is generated and should not be committed
+- `hacontrolpanel@friedjof.github.io/schemas/gschemas.compiled` is generated and should not be committed
 - Local tool configuration in `.claude/` is intentionally ignored
 - YAML backups include panel settings, buttons, sensors, and screen sync condition data, but never the Home Assistant token
