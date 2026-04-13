@@ -1,8 +1,9 @@
 UUID      = hacontrolpanel@friedjof.github.io
+VERSION   := $(shell cat VERSION)
 DEST      = $(HOME)/.local/share/gnome-shell/extensions/$(UUID)
 SRC       = $(UUID)
 FIREFOX_SRC = firefox-extension
-LOG       = /tmp/roompanel-shell.log
+LOG       = /tmp/hacontrolpanel-shell.log
 OUT_DIR   ?= dist
 SCHEMA    = schemas/org.gnome.shell.extensions.hacontrolpanel.gschema.xml
 ZIP       = $(OUT_DIR)/$(UUID).shell-extension.zip
@@ -10,14 +11,26 @@ ZIP_ABS   = $(abspath $(ZIP))
 FIREFOX_ZIP = $(OUT_DIR)/hacontrolpanel-bridge.firefox-extension.xpi
 FIREFOX_ZIP_ABS = $(abspath $(FIREFOX_ZIP))
 
+STYLES_DIR  = $(SRC)/styles
+STYLE_FILES = $(STYLES_DIR)/common.css \
+              $(STYLES_DIR)/panel.css \
+              $(STYLES_DIR)/colors.css \
+              $(STYLES_DIR)/sliders.css \
+              $(STYLES_DIR)/actions.css \
+              $(STYLES_DIR)/sensors.css
+
 SCREEN_RES := $(shell xrandr 2>/dev/null | awk '/ primary/{match($$0,/[0-9]+x[0-9]+/); print substr($$0,RSTART,RLENGTH)}')
 MUTTER_SPECS ?= $(if $(SCREEN_RES),$(SCREEN_RES),1920x1080)
 
 BRIDGE_PORT ?= 7842
 
-.PHONY: install remove reinstall run log pack pack-firefox test-bridge check-bridge
+.PHONY: install remove reinstall run log pack pack-firefox build-css test-bridge check-bridge
 
-install:
+build-css:
+	cat $(STYLE_FILES) > $(SRC)/stylesheet.css
+	@echo "Built $(SRC)/stylesheet.css from styles/"
+
+install: build-css
 	glib-compile-schemas $(SRC)/schemas/
 	rm -rf $(DEST)
 	cp -r $(SRC) $(DEST)
@@ -30,7 +43,7 @@ remove:
 
 reinstall: remove install
 
-pack:
+pack: build-css
 	mkdir -p $(OUT_DIR)
 	glib-compile-schemas --strict $(SRC)/schemas/
 	rm -f $(ZIP_ABS)
@@ -39,6 +52,7 @@ pack:
 		extension.js \
 		prefs.js \
 		stylesheet.css \
+		styles \
 		lib \
 		prefs \
 		ui \

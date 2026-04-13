@@ -46,7 +46,7 @@ jobs:
             exit 1
           fi
 
-          BASE_VERSION=$(node -p "require('./firefox-extension/manifest.json').version")
+          BASE_VERSION=$(cat VERSION)
           FIREFOX_SIGN_VERSION=$(node -e '
             const base = process.argv[1];
             const runNumber = Number(process.argv[2]);
