@@ -13,12 +13,61 @@
 
 const WS_URL = 'ws://localhost:7842';
 const RECONNECT_DELAY_MS = 3000;
+const FRAME_STALE_MS = 3000;
 
 let ws = null;
 let reconnectTimer = null;
 let selectedTab = 'auto'; // updated by GNOME extension via 'config' message
 let lastColor = null;      // last color received from active YT tab
 let currentTabs = [];      // current list of open YT tabs
+let lastFrameTabId = null;
+const tabColorState = new Map();
+
+function colorToHex(color) {
+    if (!color)
+        return null;
+
+    return `#${color.r.toString(16).padStart(2, '0')}${color.g.toString(16).padStart(2, '0')}${color.b.toString(16).padStart(2, '0')}`;
+}
+
+function updateTabColor(tabId, color) {
+    if (tabId === null || tabId === undefined || !color)
+        return;
+
+    const now = Date.now();
+    const prev = tabColorState.get(tabId) ?? { framesSeen: 0 };
+    tabColorState.set(tabId, {
+        lastColor: colorToHex(color),
+        lastFrameAt: now,
+        framesSeen: prev.framesSeen + 1,
+    });
+}
+
+function syncTabDiagnostics(tabs) {
+    const activeIds = new Set(tabs.map(tab => tab.tabId));
+    for (const tabId of tabColorState.keys()) {
+        if (!activeIds.has(tabId))
+            tabColorState.delete(tabId);
+    }
+
+    const now = Date.now();
+    currentTabs = tabs.map(tab => {
+        const diagnostics = tabColorState.get(tab.tabId) ?? {};
+        const lastFrameAt = diagnostics.lastFrameAt ?? null;
+        return {
+            ...tab,
+            lastColor: diagnostics.lastColor ?? null,
+            lastFrameAt,
+            framesSeen: diagnostics.framesSeen ?? 0,
+            frameFresh: lastFrameAt !== null && (now - lastFrameAt) <= FRAME_STALE_MS,
+            selected: selectedTab !== 'auto' && String(selectedTab) === String(tab.tabId),
+        };
+    });
+}
+
+function getTabsForServer() {
+    return currentTabs.map(({ tabId, title, active }) => ({ tabId, title, active }));
+}
 
 // ── WebSocket lifecycle ───────────────────────────────────────────────────────
 
@@ -74,8 +123,10 @@ function send(msg) {
 // ── Server → client messages ──────────────────────────────────────────────────
 
 function handleServerMessage(msg) {
-    if (msg.type === 'config' && msg.selectedTab !== undefined)
+    if (msg.type === 'config' && msg.selectedTab !== undefined) {
         selectedTab = String(msg.selectedTab);
+        syncTabDiagnostics(currentTabs.map(({ tabId, title, active }) => ({ tabId, title, active })));
+    }
 }
 
 // ── Tab status ────────────────────────────────────────────────────────────────
@@ -83,12 +134,12 @@ function handleServerMessage(msg) {
 async function broadcastTabStatus() {
     try {
         const tabs = await browser.tabs.query({ url: '*://www.youtube.com/*' });
-        currentTabs = tabs.map(t => ({
+        syncTabDiagnostics(tabs.map(t => ({
             tabId: t.id,
             title: t.title ?? '',
             active: t.active,
-        }));
-        send({ type: 'status', tabs: currentTabs });
+        })));
+        send({ type: 'status', tabs: getTabsForServer() });
     } catch {}
 }
 
@@ -96,10 +147,14 @@ async function broadcastTabStatus() {
 
 browser.runtime.onMessage.addListener((msg, sender) => {
     if (msg.type === 'frame') {
-        lastColor = `#${msg.color.r.toString(16).padStart(2, '0')}${msg.color.g.toString(16).padStart(2, '0')}${msg.color.b.toString(16).padStart(2, '0')}`;
+        const tabId = sender.tab?.id ?? null;
+        lastColor = colorToHex(msg.color);
+        lastFrameTabId = tabId;
+        updateTabColor(tabId, msg.color);
+        syncTabDiagnostics(currentTabs.map(({ tabId, title, active }) => ({ tabId, title, active })));
         send({
             type: 'frame',
-            tabId: sender.tab?.id ?? null,
+            tabId,
             color: msg.color,
         });
     }
@@ -114,6 +169,7 @@ browser.runtime.onMessage.addListener((msg, sender) => {
             connected: ws?.readyState === WebSocket.OPEN,
             tabs: currentTabs,
             lastColor,
+            lastFrameTabId,
             selectedTab,
         });
     }
@@ -126,7 +182,10 @@ browser.tabs.onUpdated.addListener((_id, info) => {
     if (info.status === 'complete' || info.title !== undefined)
         broadcastTabStatus();
 });
-browser.tabs.onRemoved.addListener(() => broadcastTabStatus());
+browser.tabs.onRemoved.addListener(tabId => {
+    tabColorState.delete(tabId);
+    broadcastTabStatus();
+});
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 

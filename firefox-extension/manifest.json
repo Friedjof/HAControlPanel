@@ -13,6 +13,13 @@
     "tabs"
   ],
 
+  "icons": {
+    "16": "icons/house.svg",
+    "32": "icons/house.svg",
+    "48": "icons/house.svg",
+    "96": "icons/house.svg"
+  },
+
   "background": {
     "scripts": ["background.js"]
   },
@@ -30,6 +37,10 @@
   ],
 
   "action": {
+    "default_icon": {
+      "16": "icons/house.svg",
+      "32": "icons/house.svg"
+    },
     "default_popup": "popup/popup.html",
     "default_title": "HAControlPanel Bridge"
   },

@@ -628,7 +628,8 @@ export class ScreenSyncController {
 
     /**
      * Called by the BrowserBridgeServer when no YouTube tab is active.
-     * The next _tick() will fall through to the configured screen source.
+     * While the bridge stays connected, monitor sampling remains paused.
+     * Fallback to the configured screen source only happens after disconnect.
      */
     setYTInactive() {
         this._ytActive = false;
@@ -884,9 +885,10 @@ export class ScreenSyncController {
         if (this._running || !this._shouldRun())
             return;
 
-        // When the Browser Bridge is prioritised and actively providing colors,
-        // let it override the configured screen source for this tick.
-        if (this._shouldUseBrowserBridge() && this._ytActive)
+        // While the Browser Bridge is prioritised and connected, suppress
+        // monitor sampling entirely. Only a real disconnect re-enables the
+        // configured screen source.
+        if (this._shouldUseBrowserBridge())
             return;
 
         this._running = true;

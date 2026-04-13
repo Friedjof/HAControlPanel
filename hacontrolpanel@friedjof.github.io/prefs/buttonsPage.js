@@ -1465,7 +1465,7 @@ class ButtonsPage extends Adw.PreferencesPage {
 
         this._browserBridgePriorityRow = new Adw.SwitchRow({
             title: 'Firefox Browser Bridge',
-            subtitle: 'Prioritize YouTube video colors over the selected screen source while connected',
+            subtitle: 'Use Firefox exclusively while connected; monitor sync resumes only after disconnect',
             active: settings.get_boolean('browser-bridge-priority'),
             visible: connected,
         });

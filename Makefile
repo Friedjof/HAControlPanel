@@ -52,6 +52,7 @@ pack-firefox:
 		manifest.json \
 		background.js \
 		content \
+		icons \
 		popup
 	@echo "Packed $(FIREFOX_ZIP)"
 
