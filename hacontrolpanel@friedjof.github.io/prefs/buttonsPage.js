@@ -1487,20 +1487,27 @@ class ButtonsPage extends Adw.PreferencesPage {
 
         // Mode: smart vs yt-only
         const MODE_VALUES = ['smart', 'yt-only'];
-        const MODE_LABELS = ['Smart — fall back to screen sync when no YouTube tab is active', 'Only YouTube — hold last color when no tab is active'];
+        const MODE_LABELS = ['Smart', 'Only YouTube'];
+        const MODE_SUBTITLES = [
+            'Falls back to screen sync when no YouTube tab is active',
+            'Holds the last color when no YouTube tab is active',
+        ];
         const modeModel = createStringList(MODE_LABELS);
         this._bridgeModeDropdown = new Gtk.DropDown({
             model: modeModel,
             valign: Gtk.Align.CENTER,
         });
         const savedMode = settings.get_string('browser-bridge-mode') || 'smart';
-        this._bridgeModeDropdown.set_selected(MODE_VALUES.indexOf(savedMode) >= 0 ? MODE_VALUES.indexOf(savedMode) : 0);
-        this._bridgeModeDropdown.connect('notify::selected', () => {
-            settings.set_string('browser-bridge-mode', MODE_VALUES[this._bridgeModeDropdown.get_selected()] ?? 'smart');
-        });
+        const savedModeIdx = MODE_VALUES.indexOf(savedMode);
+        this._bridgeModeDropdown.set_selected(savedModeIdx >= 0 ? savedModeIdx : 0);
         const modeRow = new Adw.ActionRow({
             title: 'Fallback Mode',
-            subtitle: 'What to do when no YouTube tab is active',
+            subtitle: MODE_SUBTITLES[this._bridgeModeDropdown.get_selected()] ?? MODE_SUBTITLES[0],
+        });
+        this._bridgeModeDropdown.connect('notify::selected', () => {
+            const idx = this._bridgeModeDropdown.get_selected();
+            settings.set_string('browser-bridge-mode', MODE_VALUES[idx] ?? 'smart');
+            modeRow.subtitle = MODE_SUBTITLES[idx] ?? MODE_SUBTITLES[0];
         });
         modeRow.add_suffix(this._bridgeModeDropdown);
         modeRow.activatable_widget = this._bridgeModeDropdown;
