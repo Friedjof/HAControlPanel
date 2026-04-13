@@ -17,6 +17,7 @@ export default class RoomPanelExtension extends Extension {
         this._browserBridge = null;
         this._settingsChangedId = null;
 
+        this._migrateLegacyBrowserBridgeSettings();
         this._applyCredentials();
         this._createIndicator();
         this._createScreenSyncController();
@@ -25,6 +26,21 @@ export default class RoomPanelExtension extends Extension {
 
         if (this._settings.get_boolean('auto-yaml-backup'))
             this._writeYamlBackup();
+    }
+
+    _clearBrowserBridgeTabState() {
+        this._settings.set_boolean('browser-bridge-connected', false);
+        this._settings.set_string('browser-bridge-tab-list', '[]');
+    }
+
+    _migrateLegacyBrowserBridgeSettings() {
+        if (this._settings.get_string('screen-sync-scope') !== 'browser')
+            return;
+
+        // The browser bridge no longer replaces the screen source directly.
+        // Keep the bridge active as an override and fall back to the default source.
+        this._settings.set_string('screen-sync-scope', 'primary');
+        this._settings.set_boolean('browser-bridge-priority', true);
     }
 
     _applyCredentials() {
@@ -48,6 +64,7 @@ export default class RoomPanelExtension extends Extension {
 
     _createBrowserBridge() {
         this._bridgeColorPreviewTs = 0;
+        this._clearBrowserBridgeTabState();
         const port = this._settings.get_int('browser-bridge-port');
         this._browserBridge = new BrowserBridgeServer(port, {
             onColor: (r, g, b) => {
@@ -65,7 +82,12 @@ export default class RoomPanelExtension extends Extension {
                 this._settings.set_string('browser-bridge-tab-list', JSON.stringify(tabs));
             },
             onConnected: connected => {
-                this._settings.set_boolean('browser-bridge-connected', connected);
+                if (!connected) {
+                    this._clearBrowserBridgeTabState();
+                    return;
+                }
+
+                this._settings.set_boolean('browser-bridge-connected', true);
             },
         });
 
@@ -91,8 +113,10 @@ export default class RoomPanelExtension extends Extension {
             if (key === 'browser-bridge-enabled') {
                 if (settings.get_boolean('browser-bridge-enabled'))
                     this._browserBridge?.start();
-                else
+                else {
                     this._browserBridge?.stop();
+                    this._clearBrowserBridgeTabState();
+                }
             }
 
             // Propagate tab selection change to the bridge immediately
@@ -151,6 +175,9 @@ export default class RoomPanelExtension extends Extension {
             this._browserBridge.destroy();
             this._browserBridge = null;
         }
+
+        if (this._settings)
+            this._clearBrowserBridgeTabState();
 
         if (this._haClient) {
             this._haClient.destroy();

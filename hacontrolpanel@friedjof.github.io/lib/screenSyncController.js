@@ -26,6 +26,8 @@ const CONFIG_KEYS = new Set([
     'screen-sync-ema-time',
     'screen-sync-spring-stiffness',
     'screen-sync-spring-damping',
+    'browser-bridge-priority',
+    'browser-bridge-connected',
 ]);
 const CONNECTION_KEYS = new Set(['ha-url', 'ha-token', 'ha-verify-ssl']);
 
@@ -614,8 +616,7 @@ export class ScreenSyncController {
      * @param {number} b
      */
     pushExternalColor(r, g, b) {
-        // Only accept browser colors when the source is actually set to 'browser'
-        if (this._settings.get_string('screen-sync-scope') !== 'browser')
+        if (!this._shouldUseBrowserBridge())
             return;
 
         this._ytActive = true;
@@ -627,16 +628,18 @@ export class ScreenSyncController {
 
     /**
      * Called by the BrowserBridgeServer when no YouTube tab is active.
-     * In smart mode the next _tick() will fall through to screen sampling;
-     * in yt-only mode _tick() returns early, keeping the last sent color.
+     * The next _tick() will fall through to the configured screen source.
      */
     setYTInactive() {
-        if (this._settings.get_string('screen-sync-scope') !== 'browser')
-            return;
         this._ytActive = false;
     }
 
     // -------------------------------------------------------------------------
+
+    _shouldUseBrowserBridge() {
+        return this._settings.get_boolean('browser-bridge-priority') &&
+            this._settings.get_boolean('browser-bridge-connected');
+    }
 
     _handleIdentifyRequest() {
         const requestId = this._settings.get_int('screen-sync-identify-request');
@@ -881,14 +884,10 @@ export class ScreenSyncController {
         if (this._running || !this._shouldRun())
             return;
 
-        // When scope is 'browser', skip screen sampling while YT is actively providing
-        // colors. In yt-only mode always skip (hold last color); in smart mode fall
-        // through to screen sampling as a fallback when YT is inactive.
-        const scope = this._settings.get_string('screen-sync-scope');
-        if (scope === 'browser') {
-            if (this._ytActive || this._settings.get_string('browser-bridge-mode') === 'yt-only')
-                return;
-        }
+        // When the Browser Bridge is prioritised and actively providing colors,
+        // let it override the configured screen source for this tick.
+        if (this._shouldUseBrowserBridge() && this._ytActive)
+            return;
 
         this._running = true;
 

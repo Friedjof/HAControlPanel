@@ -71,7 +71,7 @@
     <key name="screen-sync-scope" type="s">
       <default>"primary"</default>
       <summary>Screen Sync Scope</summary>
-      <description>Monitor scope for screen color sampling: "primary" (primary monitor), "stage" (entire GNOME stage), "monitor-N" to target a specific display by zero-based index, or "browser" to use the Firefox Browser Bridge as color source</description>
+      <description>Monitor scope for screen color sampling: "primary" (primary monitor), "stage" (entire GNOME stage), or "monitor-N" to target a specific display by zero-based index</description>
     </key>
     <key name="screen-sync-transition" type="s">
       <default>"catmull-rom"</default>
@@ -165,10 +165,10 @@
       <summary>Browser Bridge Port</summary>
       <description>Lokaler Port auf dem der Browser Bridge WebSocket-Server lauscht</description>
     </key>
-    <key name="browser-bridge-mode" type="s">
-      <default>"smart"</default>
-      <summary>Browser Bridge Modus</summary>
-      <description>Verhalten wenn kein YouTube-Tab aktiv ist: "smart" (Fallback auf Screen-Sync) oder "yt-only" (letzte Farbe halten)</description>
+    <key name="browser-bridge-priority" type="b">
+      <default>false</default>
+      <summary>Browser Bridge priorisieren</summary>
+      <description>Wenn aktiv, überschreiben YouTube-Farben aus der Firefox Browser Bridge die aktuell gewählte Screen-Sync-Quelle solange die Firefox-Extension verbunden ist</description>
     </key>
     <key name="browser-bridge-tab" type="s">
       <default>"auto"</default>

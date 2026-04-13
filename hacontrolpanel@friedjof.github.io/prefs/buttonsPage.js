@@ -60,6 +60,10 @@ class ButtonsPage extends Adw.PreferencesPage {
         });
 
         this._settings = settings;
+        if (settings.get_string('screen-sync-scope') === 'browser') {
+            settings.set_string('screen-sync-scope', 'primary');
+            settings.set_boolean('browser-bridge-priority', true);
+        }
         this._entities = haDataStore.getEntities();
         this._services = haDataStore.getServices();
         this._configs = this._loadConfigs();
@@ -285,16 +289,12 @@ class ButtonsPage extends Adw.PreferencesPage {
 
         const scopeRow = new Adw.ActionRow({
             title: 'Color Source',
-            subtitle: 'Screen source to sample — or use the Firefox Browser Bridge for YouTube video colors',
+            subtitle: 'Screen area to sample for normal screen sync',
         });
 
         // Build scope values and labels dynamically from available monitors
         const scopeValues = ['primary', 'stage'];
         const scopeLabels = ['Primary monitor', 'Entire stage'];
-        // 'browser' is always listed; its label reflects live connection state
-        const bridgeConnected = settings.get_boolean('browser-bridge-connected');
-        scopeValues.push('browser');
-        scopeLabels.push(bridgeConnected ? 'Firefox (Browser Bridge) — connected' : 'Firefox (Browser Bridge)');
 
         const gdkDisplay = Gdk.Display.get_default();
         if (gdkDisplay) {
@@ -339,6 +339,7 @@ class ButtonsPage extends Adw.PreferencesPage {
         scopeRow.activatable_widget = this._screenSyncScopeDropdown;
         screenSyncGroup.add(scopeRow);
         this._screenSyncScopeRow = scopeRow;
+        this._buildBrowserBridgeRows(settings, screenSyncGroup);
 
         const identifyRow = new Adw.ActionRow({
             title: 'Identify Displays',
@@ -445,9 +446,6 @@ class ButtonsPage extends Adw.PreferencesPage {
         this._updateScreenSyncTransitionOptionVisibility();
         this._updateScreenSyncSensitivity();
 
-        // ── Browser Bridge Source Settings ───────────────────────────
-        this._buildBrowserBridgeGroup(settings);
-
         // ── Slider Group ──────────────────────────────────────────────
         this._sliderEntitiesGroup = new Adw.PreferencesGroup({
             title: 'Slider',
@@ -496,8 +494,6 @@ class ButtonsPage extends Adw.PreferencesPage {
         // Screen Sync goes below Action Buttons
         this.add(screenSyncGroup);
         this.add(this._screenSyncTransitionSettingsGroup);
-        this.add(this._browserBridgeGroup);
-        this.add(this._bridgeTabSelectorGroup);
 
         this._screenSyncEntitiesGroup = new Adw.PreferencesGroup({
             title: 'Screen Sync Lights',
@@ -1437,10 +1433,12 @@ class ButtonsPage extends Adw.PreferencesPage {
             this._screenSyncConditionGroup.sensitive = enabled;
         if (this._screenSyncTransitionSettingsGroup)
             this._screenSyncTransitionSettingsGroup.sensitive = enabled;
-        if (this._browserBridgeGroup)
-            this._browserBridgeGroup.sensitive = enabled;
-        if (this._bridgeTabSelectorGroup)
-            this._bridgeTabSelectorGroup.sensitive = enabled;
+        if (this._browserBridgePriorityRow)
+            this._browserBridgePriorityRow.sensitive = enabled;
+        if (this._bridgeTabHeaderRow)
+            this._bridgeTabHeaderRow.sensitive = enabled;
+        for (const row of this._bridgeTabSelectorRows ?? [])
+            row.sensitive = enabled;
         this._updateScreenSyncConditionConfigSensitivity();
         this._screenSyncIntervalRow.sensitive = enabled;
         this._screenSyncOutputIntervalRow.sensitive = enabled;
@@ -1451,132 +1449,87 @@ class ButtonsPage extends Adw.PreferencesPage {
         this._updateScreenSyncSourceUI();
     }
 
-    // Show/hide rows that are specific to screen sources vs the browser source.
     _updateScreenSyncSourceUI() {
-        const scope = this._settings.get_string('screen-sync-scope');
-        const isBrowser = scope === 'browser';
-
-        // These rows only make sense when sampling the screen
         if (this._screenSyncIntervalRow)
-            this._screenSyncIntervalRow.visible = !isBrowser;
+            this._screenSyncIntervalRow.visible = true;
         if (this._screenSyncModeRow)
-            this._screenSyncModeRow.visible = !isBrowser;
+            this._screenSyncModeRow.visible = true;
         if (this._screenSyncIdentifyRow)
-            this._screenSyncIdentifyRow.visible = !isBrowser;
+            this._screenSyncIdentifyRow.visible = true;
         if (this._screenSyncPreviewRow)
-            this._screenSyncPreviewRow.visible = !isBrowser;
+            this._screenSyncPreviewRow.visible = true;
     }
 
-    _buildBrowserBridgeGroup(settings) {
+    _buildBrowserBridgeRows(settings, parentGroup) {
         const connected = settings.get_boolean('browser-bridge-connected');
 
-        // The browser bridge section is only visible when the Firefox extension is connected
-        this._browserBridgeGroup = new Adw.PreferencesGroup({
+        this._browserBridgePriorityRow = new Adw.SwitchRow({
             title: 'Firefox Browser Bridge',
-            description: 'The Firefox extension is connected. Configure how YouTube video colors are used as a color source.',
+            subtitle: 'Prioritize YouTube video colors over the selected screen source while connected',
+            active: settings.get_boolean('browser-bridge-priority'),
             visible: connected,
         });
+        this._browserBridgePriorityRow.connect('notify::active', () => {
+            settings.set_boolean('browser-bridge-priority', this._browserBridgePriorityRow.active);
+        });
+        parentGroup.add(this._browserBridgePriorityRow);
 
-        // Connection status info row
-        this._bridgeStatusInfoRow = new Adw.ActionRow({
-            title: 'Connection',
-            activatable: false,
-        });
-        this._browserBridgeGroup.add(this._bridgeStatusInfoRow);
-        this._updateBridgeStatusInfoRow(settings);
-
-        // Mode: smart vs yt-only
-        const MODE_VALUES = ['smart', 'yt-only'];
-        const MODE_LABELS = ['Smart', 'Only YouTube'];
-        const MODE_SUBTITLES = [
-            'Falls back to screen sync when no YouTube tab is active',
-            'Holds the last color when no YouTube tab is active',
-        ];
-        const modeModel = createStringList(MODE_LABELS);
-        this._bridgeModeDropdown = new Gtk.DropDown({
-            model: modeModel,
-            valign: Gtk.Align.CENTER,
-        });
-        const savedMode = settings.get_string('browser-bridge-mode') || 'smart';
-        const savedModeIdx = MODE_VALUES.indexOf(savedMode);
-        this._bridgeModeDropdown.set_selected(savedModeIdx >= 0 ? savedModeIdx : 0);
-        const modeRow = new Adw.ActionRow({
-            title: 'Fallback Mode',
-            subtitle: MODE_SUBTITLES[this._bridgeModeDropdown.get_selected()] ?? MODE_SUBTITLES[0],
-        });
-        this._bridgeModeDropdown.connect('notify::selected', () => {
-            const idx = this._bridgeModeDropdown.get_selected();
-            settings.set_string('browser-bridge-mode', MODE_VALUES[idx] ?? 'smart');
-            modeRow.subtitle = MODE_SUBTITLES[idx] ?? MODE_SUBTITLES[0];
-        });
-        modeRow.add_suffix(this._bridgeModeDropdown);
-        modeRow.activatable_widget = this._bridgeModeDropdown;
-        this._browserBridgeGroup.add(modeRow);
-
-        // Tab selector (rebuilt dynamically when tab-list changes)
-        this._bridgeTabSelectorGroup = new Adw.PreferencesGroup({
+        this._bridgeTabHeaderRow = new Adw.ExpanderRow({
             title: 'Active YouTube Tab',
-            description: 'Choose which tab to use when multiple YouTube videos are open.',
+            subtitle: 'Choose which tab to use when multiple YouTube videos are open.',
+            expanded: true,
             visible: false,
         });
+        parentGroup.add(this._bridgeTabHeaderRow);
+
+        this._bridgeTabSelectorRows = [];
         this._rebuildBridgeTabSelector(settings);
 
-        // React to live bridge state changes written by the GNOME extension
         this._bridgeSourceSettingsId = settings.connect('changed', (_s, key) => {
             if (key === 'browser-bridge-connected') {
                 const isConnected = settings.get_boolean('browser-bridge-connected');
-                this._browserBridgeGroup.visible = isConnected;
-                this._updateBridgeStatusInfoRow(settings);
-                if (!isConnected)
-                    this._bridgeTabSelectorGroup.visible = false;
-                else
-                    this._rebuildBridgeTabSelector(settings);
+                this._browserBridgePriorityRow.visible = isConnected;
+                this._rebuildBridgeTabSelector(settings);
             }
+            if (key === 'browser-bridge-priority' && this._browserBridgePriorityRow)
+                this._browserBridgePriorityRow.active = settings.get_boolean('browser-bridge-priority');
+            if (key === 'browser-bridge-tab')
+                this._rebuildBridgeTabSelector(settings);
             if (key === 'browser-bridge-tab-list')
                 this._rebuildBridgeTabSelector(settings);
         });
     }
 
-    _updateBridgeStatusInfoRow(settings) {
-        if (!this._bridgeStatusInfoRow) return;
-        const connected = settings.get_boolean('browser-bridge-connected');
-        this._bridgeStatusInfoRow.subtitle = connected
-            ? 'Connected — Firefox extension is active'
-            : 'Not connected — enable the Browser Bridge server in the Connection settings and load the Firefox extension';
-    }
-
     _rebuildBridgeTabSelector(settings) {
-        if (!this._bridgeTabSelectorGroup) return;
+        if (!this._bridgeTabHeaderRow) return;
 
-        // Remove existing tab rows
-        let child = this._bridgeTabSelectorGroup.get_first_child();
-        while (child) {
-            const next = child.get_next_sibling();
-            // Only remove ActionRows we added (skip internal Adw elements)
-            if (child instanceof Adw.ActionRow)
-                this._bridgeTabSelectorGroup.remove(child);
-            child = next;
-        }
+        for (const row of this._bridgeTabSelectorRows ?? [])
+            this._bridgeTabHeaderRow.remove(row);
+        this._bridgeTabSelectorRows = [];
 
+        const connected = settings.get_boolean('browser-bridge-connected');
         let tabs = [];
         try { tabs = JSON.parse(settings.get_string('browser-bridge-tab-list')); } catch {}
 
-        if (tabs.length === 0) {
-            this._bridgeTabSelectorGroup.visible = false;
-            return;
-        }
+        if (this._bridgeTabHeaderRow)
+            this._bridgeTabHeaderRow.visible = connected && tabs.length > 0;
 
-        this._bridgeTabSelectorGroup.visible = true;
+        if (tabs.length === 0)
+            return;
         const selected = settings.get_string('browser-bridge-tab') || 'auto';
+        const enabled = this._screenSyncEnabledRow?.active ?? false;
 
         // "Auto" option
         const autoRow = new Adw.ActionRow({
             title: 'Auto',
             subtitle: 'Always use the focused YouTube tab',
             activatable: true,
+            sensitive: enabled,
         });
         const autoCheck = new Gtk.CheckButton({
             active: selected === 'auto',
+            can_target: false,
+            focusable: false,
             valign: Gtk.Align.CENTER,
         });
         autoRow.add_suffix(autoCheck);
@@ -1584,7 +1537,8 @@ class ButtonsPage extends Adw.PreferencesPage {
             settings.set_string('browser-bridge-tab', 'auto');
             this._rebuildBridgeTabSelector(settings);
         });
-        this._bridgeTabSelectorGroup.add(autoRow);
+        this._bridgeTabHeaderRow.add_row(autoRow);
+        this._bridgeTabSelectorRows.push(autoRow);
 
         // One row per open YT tab
         for (const tab of tabs) {
@@ -1594,17 +1548,22 @@ class ButtonsPage extends Adw.PreferencesPage {
                 title,
                 subtitle: tab.active ? 'Currently in foreground' : 'Background tab',
                 activatable: true,
+                sensitive: enabled,
             });
             const check = new Gtk.CheckButton({
                 active: selected === tabIdStr,
+                can_target: false,
+                focusable: false,
                 valign: Gtk.Align.CENTER,
             });
+            check.set_group(autoCheck);
             tabRow.add_suffix(check);
             tabRow.connect('activated', () => {
                 settings.set_string('browser-bridge-tab', tabIdStr);
                 this._rebuildBridgeTabSelector(settings);
             });
-            this._bridgeTabSelectorGroup.add(tabRow);
+            this._bridgeTabHeaderRow.add_row(tabRow);
+            this._bridgeTabSelectorRows.push(tabRow);
         }
     }
 
