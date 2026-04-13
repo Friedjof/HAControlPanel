@@ -1,18 +1,21 @@
 UUID      = hacontrolpanel@friedjof.github.io
 DEST      = $(HOME)/.local/share/gnome-shell/extensions/$(UUID)
 SRC       = $(UUID)
+FIREFOX_SRC = firefox-extension
 LOG       = /tmp/roompanel-shell.log
 OUT_DIR   ?= dist
 SCHEMA    = schemas/org.gnome.shell.extensions.hacontrolpanel.gschema.xml
 ZIP       = $(OUT_DIR)/$(UUID).shell-extension.zip
 ZIP_ABS   = $(abspath $(ZIP))
+FIREFOX_ZIP = $(OUT_DIR)/hacontrolpanel-bridge.firefox-extension.xpi
+FIREFOX_ZIP_ABS = $(abspath $(FIREFOX_ZIP))
 
 SCREEN_RES := $(shell xrandr 2>/dev/null | awk '/ primary/{match($$0,/[0-9]+x[0-9]+/); print substr($$0,RSTART,RLENGTH)}')
 MUTTER_SPECS ?= $(if $(SCREEN_RES),$(SCREEN_RES),1920x1080)
 
 BRIDGE_PORT ?= 7842
 
-.PHONY: install remove reinstall run log pack test-bridge check-bridge
+.PHONY: install remove reinstall run log pack pack-firefox test-bridge check-bridge
 
 install:
 	glib-compile-schemas $(SRC)/schemas/
@@ -41,6 +44,16 @@ pack:
 		ui \
 		$(SCHEMA)
 	@echo "Packed $(ZIP)"
+
+pack-firefox:
+	mkdir -p $(OUT_DIR)
+	rm -f $(FIREFOX_ZIP_ABS)
+	cd $(FIREFOX_SRC) && zip -qr $(FIREFOX_ZIP_ABS) \
+		manifest.json \
+		background.js \
+		content \
+		popup
+	@echo "Packed $(FIREFOX_ZIP)"
 
 # Launch a nested GNOME Shell session.
 # The extension is enabled *inside* the new D-Bus session by polling until

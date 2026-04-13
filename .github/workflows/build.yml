@@ -1,4 +1,4 @@
-name: Build Extension
+name: Build Extensions
 
 on:
   push:
@@ -12,28 +12,50 @@ permissions:
 
 jobs:
   build:
+    name: ${{ matrix.artifact_prefix }}
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - artifact_prefix: hacontrolpanel-shell-extension
+            target: pack
+            bundle_path: dist/hacontrolpanel@friedjof.github.io.shell-extension.zip
+            renamed_prefix: dist/hacontrolpanel@friedjof.github.io
+            renamed_suffix: .shell-extension.zip
+            needs_glib: true
+          - artifact_prefix: hacontrolpanel-firefox-extension
+            target: pack-firefox
+            bundle_path: dist/hacontrolpanel-bridge.firefox-extension.xpi
+            renamed_prefix: dist/hacontrolpanel-bridge
+            renamed_suffix: .firefox-extension.xpi
+            needs_glib: false
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
 
+      - name: Capture short commit hash
+        id: meta
+        run: echo "short_sha=${GITHUB_SHA::7}" >> "${GITHUB_OUTPUT}"
+
       - name: Install build dependencies
+        if: ${{ matrix.needs_glib }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y libglib2.0-bin zip
+          sudo apt-get install -y libglib2.0-bin
 
       - name: Build extension bundle
-        run: make pack
+        run: make ${{ matrix.target }}
 
       - name: Append commit hash to bundle name
         id: bundle
         run: |
-          short_sha="${GITHUB_SHA::7}"
-          bundle="dist/hacontrolpanel@friedjof.github.io.shell-extension.zip"
-          renamed_bundle="dist/hacontrolpanel@friedjof.github.io-${short_sha}.shell-extension.zip"
+          short_sha="${{ steps.meta.outputs.short_sha }}"
+          bundle="${{ matrix.bundle_path }}"
+          renamed_bundle="${{ matrix.renamed_prefix }}-${short_sha}${{ matrix.renamed_suffix }}"
           mv "${bundle}" "${renamed_bundle}"
-          echo "artifact_name=hacontrolpanel-shell-extension-${short_sha}" >> "${GITHUB_OUTPUT}"
+          echo "artifact_name=${{ matrix.artifact_prefix }}-${short_sha}" >> "${GITHUB_OUTPUT}"
           echo "bundle_path=${renamed_bundle}" >> "${GITHUB_OUTPUT}"
 
       - name: Upload extension bundle
