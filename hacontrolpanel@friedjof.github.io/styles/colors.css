@@ -1,0 +1,118 @@
+/* HAControlPanel – color picker, screen sync toggle, color wheel, color history */
+
+.hacontrolpanel-color-info {
+  spacing: 0;
+  margin-bottom: 4px;
+}
+
+.hacontrolpanel-color-title-row {
+  spacing: 8px;
+}
+
+.hacontrolpanel-color-right {
+  spacing: 4px;
+}
+
+/* ── Screen sync toggle pill ─────────────────────────────────────────────────── */
+
+.hacontrolpanel-screen-sync-toggle {
+  min-height: 22px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.hacontrolpanel-screen-sync-toggle:hover {
+  background-color: rgba(255, 255, 255, 0.10);
+}
+
+.hacontrolpanel-screen-sync-toggle:active {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.hacontrolpanel-screen-sync-toggle-label {
+  font-size: 0.72em;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.56);
+}
+
+.hacontrolpanel-screen-sync-toggle-active {
+  background-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.34);
+}
+
+.hacontrolpanel-screen-sync-toggle-label-active {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* ── Color value display ─────────────────────────────────────────────────────── */
+
+.hacontrolpanel-color-value {
+  font-family: monospace;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: text;
+}
+
+.hacontrolpanel-color-entry {
+  font-family: monospace;
+  width: 74px;
+  min-width: 74px;
+  max-width: 74px;
+  padding: 1px 4px;
+}
+
+.hacontrolpanel-color-entry-invalid {
+  color: #ff6b6b;
+}
+
+/* ── Color picker layout ─────────────────────────────────────────────────────── */
+
+.hacontrolpanel-current-color {
+  spacing: 6px;
+}
+
+.hacontrolpanel-color-preview {
+  margin-right: 2px;
+}
+
+.hacontrolpanel-color-body {
+  spacing: 10px;
+}
+
+.hacontrolpanel-color-wheel {
+  width: 156px;
+  height: 156px;
+  margin: 2px 0 0 0;
+  border-radius: 999px;
+  border: 3px solid rgba(255, 255, 255, 0.45);
+}
+
+.hacontrolpanel-color-history {
+  spacing: 4px;
+  margin-top: 2px;
+}
+
+/* ── Color history swatches ──────────────────────────────────────────────────── */
+
+.hacontrolpanel-history-row {
+  spacing: 5px;
+}
+
+.hacontrolpanel-history-swatch {
+  height: 26px;
+  min-height: 26px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 0;
+}
+
+.hacontrolpanel-history-title {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.8em;
+}
+
+.hacontrolpanel-history-placeholder {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.85em;
+}

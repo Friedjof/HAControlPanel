@@ -1,0 +1,8 @@
+/* HAControlPanel – dimmer slider */
+
+.hacontrolpanel-dimmer-slider {
+  height: 34px;
+  min-height: 34px;
+  border-radius: 17px;
+  margin: 4px 0;
+}

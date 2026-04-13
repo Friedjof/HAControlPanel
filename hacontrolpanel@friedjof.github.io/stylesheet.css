@@ -1,93 +1,35 @@
-/* HAControlPanel – custom styles */
+/* HAControlPanel – shared utilities: settings bar items, section labels, separators, entity chips */
 
-.roompanel-settings-item {
+.hacontrolpanel-settings-item {
   padding: 2px 8px 0 8px;
 }
 
-.roompanel-settings-btn {
+.hacontrolpanel-settings-btn {
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 6px;
   padding: 2px 6px;
   background-color: transparent;
 }
 
-.roompanel-settings-btn:hover {
+.hacontrolpanel-settings-btn:hover {
   background-color: rgba(255, 255, 255, 0.08);
 }
 
-.roompanel-settings-btn-inner {
+.hacontrolpanel-settings-btn-inner {
   spacing: 4px;
 }
 
-.roompanel-settings-icon {
+.hacontrolpanel-settings-icon {
   icon-size: 12px;
   color: rgba(255, 255, 255, 0.38);
 }
 
-.roompanel-settings-domain {
+.hacontrolpanel-settings-domain {
   font-size: 0.72em;
   color: rgba(255, 255, 255, 0.38);
 }
 
-.roompanel-header-row {
-  spacing: 8px;
-}
-
-.roompanel-page-switcher {
-  spacing: 6px;
-}
-
-.roompanel-page-button {
-  min-width: 28px;
-  min-height: 28px;
-  padding: 4px;
-  border-radius: 999px;
-  background-color: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-}
-
-.roompanel-page-button:hover {
-  background-color: rgba(255, 255, 255, 0.10);
-}
-
-.roompanel-page-button-active {
-  background-color: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.28);
-}
-
-.roompanel-page-button-icon {
-  icon-size: 12px;
-  color: rgba(255, 255, 255, 0.76);
-}
-
-.roompanel-page-label {
-  min-width: 54px;
-  font-size: 0.78em;
-  color: rgba(255, 255, 255, 0.70);
-  text-align: center;
-}
-
-.roompanel-menu {
-  width: 340px;
-  min-width: 340px;
-  max-width: 340px;
-  padding: 0 6px 4px 6px;
-}
-
-.roompanel-color-info {
-  spacing: 0;
-  margin-bottom: 4px;
-}
-
-.roompanel-color-title-row {
-  spacing: 8px;
-}
-
-.roompanel-color-right {
-  spacing: 4px;
-}
-
-.roompanel-section-label {
+.hacontrolpanel-section-label {
   font-size: 0.85em;
   font-weight: bold;
   color: rgba(255, 255, 255, 0.6);
@@ -96,7 +38,121 @@
   padding-left: 2px;
 }
 
-.roompanel-screen-sync-toggle {
+.hacontrolpanel-separator {
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+/* ── Entity selection chips ──────────────────────────────────────────────────── */
+
+.hacontrolpanel-chip-row {
+  spacing: 4px;
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+
+.hacontrolpanel-chip {
+  border-radius: 12px;
+  padding: 2px 8px;
+  min-height: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.05);
+  font-size: 0.8em;
+}
+
+.hacontrolpanel-chip-content {
+  spacing: 5px;
+}
+
+.hacontrolpanel-chip-value {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.hacontrolpanel-chip:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.hacontrolpanel-chip-active {
+  background-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.92);
+}
+/* HAControlPanel – panel indicator, menu container, header row, page switcher */
+
+.hacontrolpanel-header-row {
+  spacing: 8px;
+}
+
+.hacontrolpanel-page-switcher {
+  spacing: 6px;
+}
+
+.hacontrolpanel-page-button {
+  min-width: 28px;
+  min-height: 28px;
+  padding: 4px;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.hacontrolpanel-page-button:hover {
+  background-color: rgba(255, 255, 255, 0.10);
+}
+
+.hacontrolpanel-page-button-active {
+  background-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.hacontrolpanel-page-button-icon {
+  icon-size: 12px;
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.hacontrolpanel-page-label {
+  min-width: 54px;
+  font-size: 0.78em;
+  color: rgba(255, 255, 255, 0.70);
+  text-align: center;
+}
+
+.hacontrolpanel-menu {
+  width: 340px;
+  min-width: 340px;
+  max-width: 340px;
+  padding: 0 6px 4px 6px;
+}
+
+.hacontrolpanel-entity-label {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.84em;
+  padding-left: 2px;
+}
+
+.hacontrolpanel-icon-button {
+  min-width: 30px;
+  min-height: 30px;
+  padding: 4px;
+}
+/* HAControlPanel – color picker, screen sync toggle, color wheel, color history */
+
+.hacontrolpanel-color-info {
+  spacing: 0;
+  margin-bottom: 4px;
+}
+
+.hacontrolpanel-color-title-row {
+  spacing: 8px;
+}
+
+.hacontrolpanel-color-right {
+  spacing: 4px;
+}
+
+/* ── Screen sync toggle pill ─────────────────────────────────────────────────── */
+
+.hacontrolpanel-screen-sync-toggle {
   min-height: 22px;
   padding: 1px 8px;
   border-radius: 999px;
@@ -104,36 +160,38 @@
   background-color: rgba(255, 255, 255, 0.05);
 }
 
-.roompanel-screen-sync-toggle:hover {
+.hacontrolpanel-screen-sync-toggle:hover {
   background-color: rgba(255, 255, 255, 0.10);
 }
 
-.roompanel-screen-sync-toggle:active {
+.hacontrolpanel-screen-sync-toggle:active {
   background-color: rgba(255, 255, 255, 0.08);
 }
 
-.roompanel-screen-sync-toggle-label {
+.hacontrolpanel-screen-sync-toggle-label {
   font-size: 0.72em;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.56);
 }
 
-.roompanel-screen-sync-toggle-active {
+.hacontrolpanel-screen-sync-toggle-active {
   background-color: rgba(255, 255, 255, 0.18);
   border-color: rgba(255, 255, 255, 0.34);
 }
 
-.roompanel-screen-sync-toggle-label-active {
+.hacontrolpanel-screen-sync-toggle-label-active {
   color: rgba(255, 255, 255, 0.92);
 }
 
-.roompanel-color-value {
+/* ── Color value display ─────────────────────────────────────────────────────── */
+
+.hacontrolpanel-color-value {
   font-family: monospace;
   color: rgba(255, 255, 255, 0.85);
   cursor: text;
 }
 
-.roompanel-color-entry {
+.hacontrolpanel-color-entry {
   font-family: monospace;
   width: 74px;
   min-width: 74px;
@@ -141,35 +199,25 @@
   padding: 1px 4px;
 }
 
-.roompanel-color-entry-invalid {
+.hacontrolpanel-color-entry-invalid {
   color: #ff6b6b;
 }
 
-.roompanel-entity-label {
-  color: rgba(255, 255, 255, 0.68);
-  font-size: 0.84em;
-  padding-left: 2px;
-}
+/* ── Color picker layout ─────────────────────────────────────────────────────── */
 
-.roompanel-current-color {
+.hacontrolpanel-current-color {
   spacing: 6px;
 }
 
-.roompanel-icon-button {
-  min-width: 30px;
-  min-height: 30px;
-  padding: 4px;
-}
-
-.roompanel-color-preview {
+.hacontrolpanel-color-preview {
   margin-right: 2px;
 }
 
-.roompanel-color-body {
+.hacontrolpanel-color-body {
   spacing: 10px;
 }
 
-.roompanel-color-wheel {
+.hacontrolpanel-color-wheel {
   width: 156px;
   height: 156px;
   margin: 2px 0 0 0;
@@ -177,23 +225,18 @@
   border: 3px solid rgba(255, 255, 255, 0.45);
 }
 
-.roompanel-color-history {
+.hacontrolpanel-color-history {
   spacing: 4px;
   margin-top: 2px;
 }
 
-.roompanel-dimmer-slider {
-  height: 34px;
-  min-height: 34px;
-  border-radius: 17px;
-  margin: 4px 0;
-}
+/* ── Color history swatches ──────────────────────────────────────────────────── */
 
-.roompanel-history-row {
+.hacontrolpanel-history-row {
   spacing: 5px;
 }
 
-.roompanel-history-swatch {
+.hacontrolpanel-history-swatch {
   height: 26px;
   min-height: 26px;
   border-radius: 6px;
@@ -201,18 +244,26 @@
   padding: 0;
 }
 
-
-.roompanel-history-title {
+.hacontrolpanel-history-title {
   color: rgba(255, 255, 255, 0.58);
   font-size: 0.8em;
 }
 
-.roompanel-history-placeholder {
+.hacontrolpanel-history-placeholder {
   color: rgba(255, 255, 255, 0.5);
   font-size: 0.85em;
 }
+/* HAControlPanel – dimmer slider */
 
-.roompanel-action-button {
+.hacontrolpanel-dimmer-slider {
+  height: 34px;
+  min-height: 34px;
+  border-radius: 17px;
+  margin: 4px 0;
+}
+/* HAControlPanel – action buttons */
+
+.hacontrolpanel-action-button {
   min-width: 64px;
   min-height: 46px;
   margin: 2px;
@@ -226,15 +277,15 @@
     0 1px 2px rgba(0, 0, 0, 0.24);
 }
 
-.roompanel-action-button-box {
+.hacontrolpanel-action-button-box {
   spacing: 0;
 }
 
-.roompanel-action-button-shell {
+.hacontrolpanel-action-button-shell {
   spacing: 7px;
 }
 
-.roompanel-action-button-rail {
+.hacontrolpanel-action-button-rail {
   min-width: 24px;
   min-height: 24px;
   border-radius: 999px;
@@ -242,38 +293,38 @@
   border: 1px solid rgba(255, 255, 255, 0.10);
 }
 
-.roompanel-action-button-icon {
+.hacontrolpanel-action-button-icon {
   font-size: 0.94em;
 }
 
-.roompanel-action-button-label {
+.hacontrolpanel-action-button-label {
   font-size: 0.87em;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.94);
 }
 
-.roompanel-action-button-meta-row {
+.hacontrolpanel-action-button-meta-row {
   spacing: 4px;
 }
 
-.roompanel-action-button-meta {
+.hacontrolpanel-action-button-meta {
   font-size: 0.64em;
   color: rgba(255, 255, 255, 0.48);
 }
 
-.roompanel-action-button-meta-entity {
+.hacontrolpanel-action-button-meta-entity {
   color: rgba(255, 255, 255, 0.56);
 }
 
-.roompanel-action-button-meta-separator {
+.hacontrolpanel-action-button-meta-separator {
   color: rgba(255, 255, 255, 0.34);
 }
 
-.roompanel-action-button-meta-service {
+.hacontrolpanel-action-button-meta-service {
   color: rgba(255, 255, 255, 0.42);
 }
 
-.roompanel-action-button:hover {
+.hacontrolpanel-action-button:hover {
   background-color: rgba(255, 255, 255, 0.16);
   border-color: rgba(255, 255, 255, 0.34);
   box-shadow:
@@ -282,113 +333,7 @@
     0 2px 4px rgba(0, 0, 0, 0.26);
 }
 
-/* ── Sensor tile grid ──────────────────────────────────────────────────────── */
-
-.roompanel-sensors-grid {
-  spacing: 6px;
-  padding-top: 2px;
-}
-
-.roompanel-sensor-row {
-  spacing: 6px;
-}
-
-.roompanel-sensor-tile {
-  padding: 10px 10px 8px 10px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  background-color: rgba(255, 255, 255, 0.04);
-}
-
-/* ── Icon circle ───────────────────────────────────────────────────────────── */
-
-.roompanel-sensor-icon-wrap {
-  width: 28px;
-  min-width: 28px;
-  height: 28px;
-  min-height: 28px;
-  border-radius: 999px;
-  background-color: rgba(255, 255, 255, 0.08);
-  margin-right: 8px;
-}
-
-.roompanel-sensor-icon {
-  icon-size: 14px;
-  color: rgba(255, 255, 255, 0.70);
-}
-
-/* ── Text elements ─────────────────────────────────────────────────────────── */
-
-.roompanel-sensor-col {
-  spacing: 1px;
-}
-
-.roompanel-sensor-value-row {
-  spacing: 2px;
-}
-
-.roompanel-sensor-value {
-  font-size: 1.30em;
-  font-weight: bold;
-  color: #f0f4fb;
-}
-
-.roompanel-sensor-unit {
-  font-size: 0.75em;
-  color: rgba(255, 255, 255, 0.62);
-  padding-bottom: 1px;
-}
-
-.roompanel-sensor-name {
-  font-size: 0.72em;
-  color: rgba(255, 255, 255, 0.48);
-}
-
-.roompanel-sensor-name-top {
-  margin-bottom: 1px;
-}
-
-.roompanel-sensor-trend-top {
-  spacing: 0;
-}
-
-.roompanel-sensor-trend-name {
-  color: rgba(255, 255, 255, 0.60);
-  font-size: 0.78em;
-}
-
-/* ── Gauge bar ─────────────────────────────────────────────────────────────── */
-
-.roompanel-gauge-bar {
-  height: 6px;
-  min-height: 6px;
-  margin-top: 6px;
-  border-radius: 999px;
-}
-
-/* ── Sparkline ─────────────────────────────────────────────────────────────── */
-
-.roompanel-sparkline {
-  height: 28px;
-  min-height: 28px;
-  margin-top: 4px;
-}
-
-/* ── Empty state ───────────────────────────────────────────────────────────── */
-
-.roompanel-sensor-empty-title {
-  font-weight: bold;
-  color: rgba(255, 255, 255, 0.42);
-  padding: 4px 2px 2px 2px;
-}
-
-.roompanel-sensor-empty-subtitle {
-  font-size: 0.80em;
-  color: rgba(255, 255, 255, 0.28);
-  padding: 0 2px 6px 2px;
-}
-
-.roompanel-action-button:active {
+.hacontrolpanel-action-button:active {
   background-color: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.24);
   box-shadow:
@@ -396,63 +341,30 @@
     inset 0 -1px 0 rgba(255, 255, 255, 0.04);
 }
 
-.roompanel-buttons-box {
+.hacontrolpanel-buttons-box {
   spacing: 6px;
 }
 
-.roompanel-button-row {
+.hacontrolpanel-button-row {
   spacing: 6px;
 }
+/* HAControlPanel – sensor tile grid, gauges, sparklines, empty state */
 
-.roompanel-separator {
-  margin-top: 2px;
-  margin-bottom: 2px;
-}
+/* ── Grid layout ─────────────────────────────────────────────────────────────── */
 
-.roompanel-chip-row {
-  spacing: 4px;
-  margin-top: 4px;
-  margin-bottom: 2px;
-}
-
-.roompanel-chip {
-  border-radius: 12px;
-  padding: 2px 8px;
-  min-height: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background-color: rgba(255, 255, 255, 0.05);
-  font-size: 0.8em;
-}
-
-.roompanel-chip-content {
-  spacing: 5px;
-}
-
-.roompanel-chip-value {
-  color: rgba(255, 255, 255, 0.62);
-}
-
-.roompanel-chip:hover {
-  background-color: rgba(255, 255, 255, 0.12);
-}
-
-.roompanel-chip-active {
-  background-color: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.45);
-  color: rgba(255, 255, 255, 0.92);
-}
-
-.roompanel-sensors-grid {
+.hacontrolpanel-sensors-grid {
   spacing: 8px;
   padding-top: 2px;
   padding-bottom: 2px;
 }
 
-.roompanel-sensor-row {
+.hacontrolpanel-sensor-row {
   spacing: 8px;
 }
 
-.roompanel-sensor-tile {
+/* ── Tile container ──────────────────────────────────────────────────────────── */
+
+.hacontrolpanel-sensor-tile {
   spacing: 10px;
   min-height: 68px;
   padding: 10px 12px;
@@ -461,75 +373,101 @@
   background-color: rgba(255, 255, 255, 0.04);
 }
 
-.roompanel-sensor-icon-wrap {
+/* ── Icon circle ─────────────────────────────────────────────────────────────── */
+
+.hacontrolpanel-sensor-icon-wrap {
   width: 28px;
+  min-width: 28px;
   height: 28px;
+  min-height: 28px;
   padding: 6px;
   border-radius: 999px;
   background-color: rgba(255, 255, 255, 0.08);
+  margin-right: 8px;
 }
 
-.roompanel-sensor-icon {
+.hacontrolpanel-sensor-icon {
   icon-size: 14px;
   color: rgba(255, 255, 255, 0.78);
 }
 
-.roompanel-sensor-col {
+/* ── Text elements ───────────────────────────────────────────────────────────── */
+
+.hacontrolpanel-sensor-col {
   spacing: 4px;
 }
 
-.roompanel-sensor-value-row {
+.hacontrolpanel-sensor-value-row {
   spacing: 4px;
 }
 
-.roompanel-sensor-value {
+.hacontrolpanel-sensor-value {
   font-size: 1.32em;
   font-weight: bold;
   color: rgba(255, 255, 255, 0.94);
 }
 
-.roompanel-sensor-unit {
+.hacontrolpanel-sensor-unit {
+  font-size: 0.75em;
   color: rgba(255, 255, 255, 0.62);
   padding-top: 3px;
+  padding-bottom: 1px;
 }
 
-.roompanel-sensor-name {
+.hacontrolpanel-sensor-name {
   font-size: 0.82em;
   color: rgba(255, 255, 255, 0.56);
 }
 
-.roompanel-sensor-name-top {
+.hacontrolpanel-sensor-name-top {
   margin-top: 1px;
+  margin-bottom: 1px;
 }
 
-.roompanel-sensor-trend-top,
-.roompanel-sensor-gauge-top {
+/* ── Trend / gauge header ────────────────────────────────────────────────────── */
+
+.hacontrolpanel-sensor-trend-top,
+.hacontrolpanel-sensor-gauge-top {
   spacing: 10px;
   min-height: 38px;
 }
 
-.roompanel-sensor-trend-name {
+.hacontrolpanel-sensor-trend-name {
+  color: rgba(255, 255, 255, 0.60);
+  font-size: 0.78em;
   padding-top: 1px;
 }
 
-.roompanel-sparkline {
+/* ── Gauge bar ───────────────────────────────────────────────────────────────── */
+
+.hacontrolpanel-gauge-bar {
+  height: 6px;
+  min-height: 6px;
+  margin-top: 10px;
+  margin-bottom: 2px;
+  border-radius: 999px;
+}
+
+/* ── Sparkline ───────────────────────────────────────────────────────────────── */
+
+.hacontrolpanel-sparkline {
+  height: 28px;
+  min-height: 28px;
   margin-top: 8px;
   margin-bottom: 1px;
 }
 
-.roompanel-gauge-bar {
-  margin-top: 10px;
-  margin-bottom: 2px;
-}
+/* ── Empty state ─────────────────────────────────────────────────────────────── */
 
-.roompanel-sensor-empty-title {
+.hacontrolpanel-sensor-empty-title {
   font-size: 0.95em;
   font-weight: bold;
   color: rgba(255, 255, 255, 0.80);
   padding: 6px 4px 0 4px;
 }
 
-.roompanel-sensor-empty-subtitle {
+.hacontrolpanel-sensor-empty-subtitle {
+  font-size: 0.80em;
   color: rgba(255, 255, 255, 0.52);
   padding: 0 4px 6px 4px;
 }
