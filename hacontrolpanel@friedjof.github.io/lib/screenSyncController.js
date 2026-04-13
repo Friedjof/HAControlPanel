@@ -614,6 +614,10 @@ export class ScreenSyncController {
      * @param {number} b
      */
     pushExternalColor(r, g, b) {
+        // Only accept browser colors when the source is actually set to 'browser'
+        if (this._settings.get_string('screen-sync-scope') !== 'browser')
+            return;
+
         this._ytActive = true;
         this._colorHistory.push({ color: [r, g, b], time: Date.now() });
         const maxHistory = getInterpolatorHistorySize(this._interpolator, this._settings);
@@ -627,6 +631,8 @@ export class ScreenSyncController {
      * in yt-only mode _tick() returns early, keeping the last sent color.
      */
     setYTInactive() {
+        if (this._settings.get_string('screen-sync-scope') !== 'browser')
+            return;
         this._ytActive = false;
     }
 

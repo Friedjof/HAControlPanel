@@ -284,8 +284,8 @@ class ButtonsPage extends Adw.PreferencesPage {
         this._screenSyncThresholdSpin = thresholdSpin;
 
         const scopeRow = new Adw.ActionRow({
-            title: 'Sampling Scope',
-            subtitle: 'Choose which display to sample: primary monitor, entire stage, or a specific display by index',
+            title: 'Color Source',
+            subtitle: 'Screen source to sample — or use the Firefox Browser Bridge for YouTube video colors',
         });
 
         // Build scope values and labels dynamically from available monitors
@@ -1439,6 +1439,8 @@ class ButtonsPage extends Adw.PreferencesPage {
             this._screenSyncTransitionSettingsGroup.sensitive = enabled;
         if (this._browserBridgeGroup)
             this._browserBridgeGroup.sensitive = enabled;
+        if (this._bridgeTabSelectorGroup)
+            this._bridgeTabSelectorGroup.sensitive = enabled;
         this._updateScreenSyncConditionConfigSensitivity();
         this._screenSyncIntervalRow.sensitive = enabled;
         this._screenSyncOutputIntervalRow.sensitive = enabled;
@@ -1463,23 +1465,16 @@ class ButtonsPage extends Adw.PreferencesPage {
             this._screenSyncIdentifyRow.visible = !isBrowser;
         if (this._screenSyncPreviewRow)
             this._screenSyncPreviewRow.visible = !isBrowser;
-
-        // Browser bridge settings only appear when scope is browser
-        if (this._browserBridgeGroup)
-            this._browserBridgeGroup.visible = isBrowser;
-
-        // Tab selector: visible only in browser mode and when tabs exist
-        if (this._bridgeTabSelectorGroup && !isBrowser)
-            this._bridgeTabSelectorGroup.visible = false;
-        else if (this._bridgeTabSelectorGroup && isBrowser)
-            this._rebuildBridgeTabSelector(this._settings);
     }
 
     _buildBrowserBridgeGroup(settings) {
+        const connected = settings.get_boolean('browser-bridge-connected');
+
+        // The browser bridge section is only visible when the Firefox extension is connected
         this._browserBridgeGroup = new Adw.PreferencesGroup({
             title: 'Firefox Browser Bridge',
-            description: 'Configure how YouTube video colors are used when the Firefox extension is the active source.',
-            visible: settings.get_string('screen-sync-scope') === 'browser',
+            description: 'The Firefox extension is connected. Configure how YouTube video colors are used as a color source.',
+            visible: connected,
         });
 
         // Connection status info row
@@ -1521,8 +1516,15 @@ class ButtonsPage extends Adw.PreferencesPage {
 
         // React to live bridge state changes written by the GNOME extension
         this._bridgeSourceSettingsId = settings.connect('changed', (_s, key) => {
-            if (key === 'browser-bridge-connected')
+            if (key === 'browser-bridge-connected') {
+                const isConnected = settings.get_boolean('browser-bridge-connected');
+                this._browserBridgeGroup.visible = isConnected;
                 this._updateBridgeStatusInfoRow(settings);
+                if (!isConnected)
+                    this._bridgeTabSelectorGroup.visible = false;
+                else
+                    this._rebuildBridgeTabSelector(settings);
+            }
             if (key === 'browser-bridge-tab-list')
                 this._rebuildBridgeTabSelector(settings);
         });
