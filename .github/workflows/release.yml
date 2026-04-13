@@ -46,14 +46,31 @@ jobs:
             exit 1
           fi
 
-          FIREFOX_VERSION="${GITHUB_REF_NAME#v}"
-          node -e '
-            const version = process.argv[1];
-            if (!/^(0|[1-9][0-9]{0,8})(\.(0|[1-9][0-9]{0,8})){0,3}$/.test(version)) {
-              console.error(`Git tag version is not a valid Firefox add-on version: ${version}`);
+          BASE_VERSION=$(node -p "require('./firefox-extension/manifest.json').version")
+          FIREFOX_SIGN_VERSION=$(node -e '
+            const base = process.argv[1];
+            const runNumber = Number(process.argv[2]);
+            const runAttempt = Number(process.argv[3]);
+            let parts = base.split(".").map(Number);
+            if (!Number.isInteger(runNumber) || runNumber <= 0)
               process.exit(1);
-            }
-          ' "${FIREFOX_VERSION}"
+            if (!Number.isInteger(runAttempt) || runAttempt <= 0)
+              process.exit(1);
+            if (parts.some(n => !Number.isInteger(n) || n < 0))
+              process.exit(1);
+            while (parts.length < 3)
+              parts.push(0);
+            parts = parts.slice(0, 4);
+            const ciBuild = runNumber * 100 + runAttempt;
+            if (ciBuild > 999999999)
+              process.exit(1);
+            if (parts.length < 4)
+              parts.push(ciBuild);
+            else
+              parts[3] = ciBuild;
+            console.log(parts.join("."));
+          ' "${BASE_VERSION}" "${GITHUB_RUN_NUMBER}" "${GITHUB_RUN_ATTEMPT}")
+          echo "Signing Firefox add-on with internal version ${FIREFOX_SIGN_VERSION}"
 
           mkdir -p dist
           rm -rf dist/firefox-extension-sign
@@ -65,7 +82,7 @@ jobs:
             const manifest = JSON.parse(fs.readFileSync(path, "utf8"));
             manifest.version = process.argv[1];
             fs.writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
-          ' "${FIREFOX_VERSION}"
+          ' "${FIREFOX_SIGN_VERSION}"
 
           npx --yes web-ext@8 sign \
             --channel=unlisted \
