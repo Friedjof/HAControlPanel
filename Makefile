@@ -70,7 +70,8 @@ log:
 
 # ── Browser Bridge test environment ─────────────────────────────────────────
 # Starts a nested GNOME Shell with the extension pre-configured for
-# Browser Bridge testing (scope=browser, bridge enabled on port $(BRIDGE_PORT)).
+# Browser Bridge testing (bridge enabled on port $(BRIDGE_PORT) with bridge
+# priority enabled over the selected screen source).
 # After the shell is ready, instructions for loading the Firefox extension
 # are printed. Use 'make check-bridge' in a second terminal to verify the port.
 test-bridge: install
@@ -97,11 +98,13 @@ test-bridge: install
 		SDIR=$(DEST)/schemas; \
 		gsettings --schemadir $$SDIR set $$SCHEMA_ID browser-bridge-enabled true; \
 		gsettings --schemadir $$SDIR set $$SCHEMA_ID browser-bridge-port $(BRIDGE_PORT); \
+		gsettings --schemadir $$SDIR set $$SCHEMA_ID browser-bridge-priority true; \
 		gsettings --schemadir $$SDIR set $$SCHEMA_ID screen-sync-enabled true; \
-		gsettings --schemadir $$SDIR set $$SCHEMA_ID screen-sync-scope browser; \
+		gsettings --schemadir $$SDIR set $$SCHEMA_ID screen-sync-scope primary; \
 		echo ""; \
 		echo "  ✓ Browser Bridge enabled on port $(BRIDGE_PORT)"; \
-		echo "  ✓ Screen Sync scope set to: browser"; \
+		echo "  ✓ Browser Bridge priority enabled"; \
+		echo "  ✓ Screen Sync source set to: primary"; \
 		echo ""; \
 		echo "  Next steps:"; \
 		echo "  1. Open Firefox → about:debugging → This Firefox"; \

@@ -37,7 +37,7 @@ HAControlPanel is a GNOME Shell extension that adds a compact Home Assistant con
 
 ## 🦊 Browser Bridge (Firefox Extension)
 
-The Browser Bridge lets the companion Firefox extension send YouTube video colors directly to your lights. It integrates as a native source in the screen sync pipeline — the same interpolation, throttling, and threshold logic applies.
+The Browser Bridge lets the companion Firefox extension send YouTube video colors directly to your lights. It feeds into the same screen sync pipeline, so interpolation, throttling, and threshold logic still apply.
 
 ### How it works
 
@@ -57,15 +57,9 @@ Home Assistant lights
 2. **Load the Firefox extension** temporarily:
    - Open `about:debugging` → *This Firefox* → *Load Temporary Add-on*
    - Select `firefox-extension/manifest.json` from this repository.
-3. **Set the source** in the panel menu → *YT Input* → pick *Smart* or *Only YT*.
-4. Open YouTube and play a video — your lights will follow the video colors.
-
-### Modes
-
-| Mode | YouTube tab active | No YouTube tab |
-|---|---|---|
-| **Smart** | Video colors → lights | Falls back to screen sync |
-| **Only YT** | Video colors → lights | Holds last color |
+3. **Open the Actions preferences**. Once the Firefox extension is connected, a *Firefox Browser Bridge* section appears below *Color Source*.
+4. **Enable priority** there if YouTube colors should override the selected screen source while the extension stays connected.
+5. Open YouTube and play a video — your lights will follow the video colors. If Firefox disconnects or no YouTube tab is active, the normal screen source takes over again.
 
 The *Connection* preferences page shows live diagnostics: connection status, active YouTube tab, and a color preview swatch.
 
@@ -129,7 +123,7 @@ tools/
 
 ### Browser Bridge test environment
 
-`make test-bridge` starts a nested GNOME Shell with `browser-bridge-enabled`, `screen-sync-enabled`, and `screen-sync-scope=browser` already set. After the shell is ready, it prints step-by-step instructions.
+`make test-bridge` starts a nested GNOME Shell with `browser-bridge-enabled`, `browser-bridge-priority`, and `screen-sync-enabled` already set. After the shell is ready, it prints step-by-step instructions.
 
 **Option A — with real Firefox:**
 1. `make test-bridge`
