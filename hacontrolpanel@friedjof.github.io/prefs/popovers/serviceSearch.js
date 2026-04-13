@@ -1,6 +1,6 @@
 import Gtk from 'gi://Gtk';
 import GObject from 'gi://GObject';
-import { getKnownServiceKeys } from '../../lib/serviceTemplates.js';
+import { getKnownServiceKeys } from '../../lib/ha/serviceTemplates.js';
 
 export const ServiceSearchPopover = GObject.registerClass(
 class ServiceSearchPopover extends Gtk.Popover {

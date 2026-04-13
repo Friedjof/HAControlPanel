@@ -74,7 +74,7 @@ export const ColorWheel = GObject.registerClass({
 }, class ColorWheel extends St.DrawingArea {
     _init(params = {}) {
         super._init({
-            style_class: 'roompanel-color-wheel',
+            style_class: 'hacontrolpanel-color-wheel',
             reactive: true,
             can_focus: true,
             track_hover: true,

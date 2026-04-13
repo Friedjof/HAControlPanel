@@ -16,7 +16,7 @@ export class ColorHistoryView {
         this._actor = new St.BoxLayout({
             vertical: true,
             x_expand: true,
-            style_class: 'roompanel-color-history',
+            style_class: 'hacontrolpanel-color-history',
         });
     }
 
@@ -36,7 +36,7 @@ export class ColorHistoryView {
         if (colors.length === 0) {
             this._actor.add_child(new St.Label({
                 text: 'Recent colors appear here',
-                style_class: 'roompanel-history-placeholder',
+                style_class: 'hacontrolpanel-history-placeholder',
                 x_expand: true,
                 y_align: Clutter.ActorAlign.CENTER,
             }));
@@ -47,13 +47,13 @@ export class ColorHistoryView {
             const row = new St.BoxLayout({
                 vertical: false,
                 x_expand: true,
-                style_class: 'roompanel-history-row',
+                style_class: 'hacontrolpanel-history-row',
             });
 
             for (let j = i; j < Math.min(i + 2, colors.length); j++) {
                 const hex = colors[j];
                 const swatch = new St.Button({
-                    style_class: 'button roompanel-history-swatch',
+                    style_class: 'button hacontrolpanel-history-swatch',
                     x_expand: true,
                     can_focus: true,
                     reactive: true,

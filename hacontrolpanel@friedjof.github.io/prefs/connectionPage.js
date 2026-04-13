@@ -3,7 +3,7 @@ import Gdk from 'gi://Gdk';
 import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk';
 import GObject from 'gi://GObject';
-import { HaClient } from '../lib/haClient.js';
+import { HaClient } from '../lib/ha/haClient.js';
 import { haDataStore } from './haDataStore.js';
 
 /** Convert a hex color string to a Gdk.RGBA */

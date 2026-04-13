@@ -3,9 +3,9 @@ import Gtk from 'gi://Gtk';
 import GObject from 'gi://GObject';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
-import { serialize, parse } from '../lib/yaml.js';
-import { getDefaultBackupPath, getResolvedBackupPath, settingsToObject } from '../lib/backup.js';
-import { validateConfig } from '../lib/configValidator.js';
+import { serialize, parse } from '../lib/config/yaml.js';
+import { getDefaultBackupPath, getResolvedBackupPath, settingsToObject } from '../lib/config/backup.js';
+import { validateConfig } from '../lib/config/configValidator.js';
 
 function getDownloadsDir() {
     const xdg = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD);
@@ -267,7 +267,7 @@ export const BackupPage = GObject.registerClass(
         async _exportYaml() {
             const dialog = new Gtk.FileDialog({
                 title: 'Export Settings',
-                initial_name: 'roompanel-backup.yaml',
+                initial_name: 'hacontrolpanel-backup.yaml',
                 initial_folder: getDownloadsDir(),
             });
 

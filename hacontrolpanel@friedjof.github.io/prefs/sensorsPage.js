@@ -2,7 +2,7 @@ import Adw from 'gi://Adw';
 import Gtk from 'gi://Gtk';
 import GObject from 'gi://GObject';
 import { haDataStore } from './haDataStore.js';
-import { readSensorWidgets } from '../lib/configAdapters.js';
+import { readSensorWidgets } from '../lib/config/configAdapters.js';
 import { SensorWidgetDialog, SensorWidgetRow } from './dialogs/sensorWidgetEdit.js';
 
 export const SensorsPage = GObject.registerClass(

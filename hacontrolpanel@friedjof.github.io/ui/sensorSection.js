@@ -3,7 +3,7 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { SensorValueTile } from './sensorValueTile.js';
 import { SensorGaugeTile } from './sensorGaugeTile.js';
 import { SensorTrendTile } from './sensorTrendTile.js';
-import { readSensorWidgets } from '../lib/configAdapters.js';
+import { readSensorWidgets } from '../lib/config/configAdapters.js';
 import { getNumericValue } from './sensorHelpers.js';
 
 /**
@@ -26,7 +26,7 @@ export class SensorSection {
 
         this._menuItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
         this._separator = new PopupMenu.PopupSeparatorMenuItem();
-        this._separator.add_style_class_name('roompanel-separator');
+        this._separator.add_style_class_name('hacontrolpanel-separator');
 
         this._buildGrid();
         this._connectSettings();
@@ -89,18 +89,18 @@ export class SensorSection {
             .filter(c => c.entity_id);
 
         const box = new St.BoxLayout({ vertical: true, x_expand: true });
-        box.add_style_class_name('roompanel-menu');
-        box.add_style_class_name('roompanel-sensors-grid');
+        box.add_style_class_name('hacontrolpanel-menu');
+        box.add_style_class_name('hacontrolpanel-sensors-grid');
         this._menuItem.add_child(box);
 
         if (configs.length === 0) {
             box.add_child(new St.Label({
                 text: 'No sensor widgets configured',
-                style_class: 'roompanel-sensor-empty-title',
+                style_class: 'hacontrolpanel-sensor-empty-title',
             }));
             box.add_child(new St.Label({
                 text: 'Open Settings → Sensors to add read-only sensor tiles.',
-                style_class: 'roompanel-sensor-empty-subtitle',
+                style_class: 'hacontrolpanel-sensor-empty-subtitle',
             }));
             return;
         }
@@ -142,7 +142,7 @@ export class SensorSection {
         const row = new St.BoxLayout({
             vertical: false,
             x_expand: true,
-            style_class: 'roompanel-sensor-row',
+            style_class: 'hacontrolpanel-sensor-row',
         });
         for (const t of tiles)
             row.add_child(t.getActor());

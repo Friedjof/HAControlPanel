@@ -142,7 +142,7 @@ tools/
 |---|---|
 | `make install` | Compile schemas and copy extension into the local GNOME Shell extensions directory |
 | `make reinstall` | Remove and install again (picks up all changes) |
-| `make run` | Start a nested GNOME Shell session; logs go to `/tmp/roompanel-shell.log` |
+| `make run` | Start a nested GNOME Shell session; logs go to `/tmp/hacontrolpanel-shell.log` |
 | `make log` | Print the last nested-shell log (JS errors, extension output) |
 | `make pack` | Create `dist/hacontrolpanel@friedjof.github.io.shell-extension.zip` |
 | `make test-bridge` | Start a nested shell **pre-configured** for Browser Bridge testing |

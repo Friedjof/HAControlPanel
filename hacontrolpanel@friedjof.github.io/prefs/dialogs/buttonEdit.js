@@ -2,7 +2,7 @@ import Adw from 'gi://Adw';
 import Gdk from 'gi://Gdk';
 import Gtk from 'gi://Gtk';
 import GObject from 'gi://GObject';
-import { getTemplate } from '../../lib/serviceTemplates.js';
+import { getTemplate } from '../../lib/ha/serviceTemplates.js';
 import { getServiceDomains, createStringList, getDropDownValue, setDropDownValue, escapeMarkup } from '../utils.js';
 import { EntitySearchPopover } from '../popovers/entitySearch.js';
 import { ServiceSearchPopover } from '../popovers/serviceSearch.js';

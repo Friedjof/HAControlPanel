@@ -1,6 +1,6 @@
 import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk';
-import { getKnownServiceKeys } from '../lib/serviceTemplates.js';
+import { getKnownServiceKeys } from '../lib/ha/serviceTemplates.js';
 
 // ── Service helpers ───────────────────────────────────────────────────────────
 

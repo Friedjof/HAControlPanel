@@ -11,7 +11,7 @@ const Sparkline = GObject.registerClass(
 class Sparkline extends St.DrawingArea {
     _init() {
         super._init({
-            style_class: 'roompanel-sparkline',
+            style_class: 'hacontrolpanel-sparkline',
             height: 28,
             x_expand: true,
         });
@@ -126,31 +126,31 @@ export class SensorTrendTile {
         this._actor = new St.BoxLayout({
             vertical: true,
             x_expand: true,
-            style_class: 'roompanel-sensor-tile',
+            style_class: 'hacontrolpanel-sensor-tile',
         });
 
         // Top row: icon | name (fills) | value unit
         const topRow = new St.BoxLayout({
             vertical: false,
             x_expand: true,
-            style_class: 'roompanel-sensor-trend-top',
+            style_class: 'hacontrolpanel-sensor-trend-top',
         });
         this._actor.add_child(topRow);
 
         const iconWrap = new St.Bin({
-            style_class: 'roompanel-sensor-icon-wrap',
+            style_class: 'hacontrolpanel-sensor-icon-wrap',
             y_align: Clutter.ActorAlign.CENTER,
         });
         this._iconActor = new St.Icon({
             icon_name: 'utilities-system-monitor-symbolic',
-            style_class: 'roompanel-sensor-icon',
+            style_class: 'hacontrolpanel-sensor-icon',
         });
         iconWrap.set_child(this._iconActor);
         topRow.add_child(iconWrap);
 
         this._nameLabel = new St.Label({
             text: '',
-            style_class: 'roompanel-sensor-name roompanel-sensor-trend-name',
+            style_class: 'hacontrolpanel-sensor-name hacontrolpanel-sensor-trend-name',
             x_expand: true,
             y_align: Clutter.ActorAlign.CENTER,
         });
@@ -163,14 +163,14 @@ export class SensorTrendTile {
 
         this._valueLabel = new St.Label({
             text: '—',
-            style_class: 'roompanel-sensor-value',
+            style_class: 'hacontrolpanel-sensor-value',
             y_align: Clutter.ActorAlign.END,
         });
         valueRow.add_child(this._valueLabel);
 
         this._unitLabel = new St.Label({
             text: '',
-            style_class: 'roompanel-sensor-unit',
+            style_class: 'hacontrolpanel-sensor-unit',
             y_align: Clutter.ActorAlign.END,
         });
         valueRow.add_child(this._unitLabel);

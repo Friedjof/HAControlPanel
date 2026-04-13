@@ -5,7 +5,7 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { DimmerSlider } from './dimmerSlider.js';
 import { entityMatchesDomain, formatEntityLabel, formatSliderValue } from './menuHelpers.js';
 import { LiveValueSync } from './liveValueSync.js';
-import { readSliderConfigs } from '../lib/configAdapters.js';
+import { readSliderConfigs } from '../lib/config/configAdapters.js';
 
 /**
  * The slider section of the panel menu.
@@ -32,7 +32,7 @@ export class SliderSection {
 
         this._menuItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
         this._separator = new PopupMenu.PopupSeparatorMenuItem();
-        this._separator.add_style_class_name('roompanel-separator');
+        this._separator.add_style_class_name('hacontrolpanel-separator');
 
         this._buildUI();
         this._connectSettings();
@@ -117,12 +117,12 @@ export class SliderSection {
 
     _buildUI() {
         const sliderBox = new St.BoxLayout({ vertical: true, x_expand: true });
-        sliderBox.add_style_class_name('roompanel-menu');
+        sliderBox.add_style_class_name('hacontrolpanel-menu');
         this._menuItem.add_child(sliderBox);
 
         this._sliderLabel = new St.Label({
             text: 'Value',
-            style_class: 'roompanel-section-label',
+            style_class: 'hacontrolpanel-section-label',
         });
         sliderBox.add_child(this._sliderLabel);
 
@@ -132,7 +132,7 @@ export class SliderSection {
         this._sliderChipRow = new St.BoxLayout({
             vertical: false,
             x_expand: true,
-            style_class: 'roompanel-chip-row',
+            style_class: 'hacontrolpanel-chip-row',
         });
         sliderBox.add_child(this._sliderChipRow);
 
@@ -272,26 +272,26 @@ export class SliderSection {
             const entityId = cfg.entity_id;
             const isActive = selected.length === 0 || selected.includes(entityId);
             const chip = new St.Button({
-                style_class: 'roompanel-chip' + (isActive ? ' roompanel-chip-active' : ''),
+                style_class: 'hacontrolpanel-chip' + (isActive ? ' hacontrolpanel-chip-active' : ''),
                 can_focus: true,
                 reactive: true,
                 x_expand: true,
             });
             const chipContent = new St.BoxLayout({
                 vertical: false,
-                style_class: 'roompanel-chip-content',
+                style_class: 'hacontrolpanel-chip-content',
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
             });
             chipContent.add_child(new St.Label({
                 text: this._entityNames[entityId] ?? formatEntityLabel(entityId),
-                style_class: 'roompanel-chip-name',
+                style_class: 'hacontrolpanel-chip-name',
                 y_align: Clutter.ActorAlign.CENTER,
                 x_align: Clutter.ActorAlign.CENTER,
             }));
             chipContent.add_child(new St.Label({
                 text: this._getSliderChipValueText(entityId),
-                style_class: 'roompanel-chip-value',
+                style_class: 'hacontrolpanel-chip-value',
                 y_align: Clutter.ActorAlign.CENTER,
                 x_align: Clutter.ActorAlign.CENTER,
             }));

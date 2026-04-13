@@ -3,7 +3,7 @@ import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { ColorWheel, rgbToHex } from './colorWheel.js';
-import { hexToRgb, loadColorHistory, pushColorToHistory, saveColorHistory } from '../lib/colorHistory.js';
+import { hexToRgb, loadColorHistory, pushColorToHistory, saveColorHistory } from '../lib/sync/colorHistory.js';
 import {
     entityMatchesDomain, buildColorPreviewStyle, darkenHex, formatEntityLabel,
 } from './menuHelpers.js';
@@ -130,43 +130,43 @@ export class ColorSection {
             vertical: true,
             x_expand: true,
         });
-        colorBox.add_style_class_name('roompanel-menu');
+        colorBox.add_style_class_name('hacontrolpanel-menu');
         this._menuItem.add_child(colorBox);
 
         // Top row: "Color" label + entity name (left) | preview + hex + copy (right)
         const colorTopRow = new St.BoxLayout({
             vertical: false,
             x_expand: true,
-            style_class: 'roompanel-color-header',
+            style_class: 'hacontrolpanel-color-header',
         });
         colorBox.add_child(colorTopRow);
 
         const colorInfoBox = new St.BoxLayout({
             vertical: true,
             x_expand: true,
-            style_class: 'roompanel-color-info',
+            style_class: 'hacontrolpanel-color-info',
         });
         colorTopRow.add_child(colorInfoBox);
 
         const colorTitleRow = new St.BoxLayout({
             vertical: false,
             x_expand: true,
-            style_class: 'roompanel-color-title-row',
+            style_class: 'hacontrolpanel-color-title-row',
         });
         colorInfoBox.add_child(colorTitleRow);
 
         colorTitleRow.add_child(new St.Label({
             text: 'Color',
-            style_class: 'roompanel-section-label',
+            style_class: 'hacontrolpanel-section-label',
         }));
 
         this._screenSyncToggleLabel = new St.Label({
             text: 'Sync',
-            style_class: 'roompanel-screen-sync-toggle-label',
+            style_class: 'hacontrolpanel-screen-sync-toggle-label',
             y_align: Clutter.ActorAlign.CENTER,
         });
         this._screenSyncToggle = new St.Button({
-            style_class: 'button roompanel-screen-sync-toggle',
+            style_class: 'button hacontrolpanel-screen-sync-toggle',
             can_focus: true,
             reactive: true,
             child: this._screenSyncToggleLabel,
@@ -178,7 +178,7 @@ export class ColorSection {
 
         this._colorEntityLabel = new St.Label({
             text: '',
-            style_class: 'roompanel-entity-label',
+            style_class: 'hacontrolpanel-entity-label',
             x_expand: true,
         });
         colorInfoBox.add_child(this._colorEntityLabel);
@@ -186,14 +186,14 @@ export class ColorSection {
         // Preview + hex + copy — right side of header row
         const currentColorBox = new St.BoxLayout({
             vertical: false,
-            style_class: 'roompanel-current-color',
+            style_class: 'hacontrolpanel-current-color',
             x_align: Clutter.ActorAlign.END,
             y_align: Clutter.ActorAlign.CENTER,
         });
         colorTopRow.add_child(currentColorBox);
 
         this._colorPreview = new St.Widget({
-            style_class: 'roompanel-color-preview',
+            style_class: 'hacontrolpanel-color-preview',
             y_align: Clutter.ActorAlign.CENTER,
             style: buildColorPreviewStyle('#ffffff'),
         });
@@ -201,7 +201,7 @@ export class ColorSection {
 
         this._colorValue = new St.Label({
             text: '#ffffff',
-            style_class: 'roompanel-color-value',
+            style_class: 'hacontrolpanel-color-value',
             y_align: Clutter.ActorAlign.CENTER,
             reactive: true,
             can_focus: true,
@@ -210,7 +210,7 @@ export class ColorSection {
         currentColorBox.add_child(this._colorValue);
 
         this._colorEntry = new St.Entry({
-            style_class: 'roompanel-color-entry',
+            style_class: 'hacontrolpanel-color-entry',
             y_align: Clutter.ActorAlign.CENTER,
             visible: false,
             can_focus: true,
@@ -226,9 +226,9 @@ export class ColorSection {
         this._colorEntry.get_clutter_text().connect('text-changed', () => {
             const valid = !!this._parseHex(this._colorEntry.get_text());
             if (valid)
-                this._colorEntry.remove_style_class_name('roompanel-color-entry-invalid');
+                this._colorEntry.remove_style_class_name('hacontrolpanel-color-entry-invalid');
             else
-                this._colorEntry.add_style_class_name('roompanel-color-entry-invalid');
+                this._colorEntry.add_style_class_name('hacontrolpanel-color-entry-invalid');
         });
         this._colorEntry.get_clutter_text().connect('key-focus-out', () => {
             if (this._colorEntry.visible)
@@ -241,7 +241,7 @@ export class ColorSection {
             style_class: 'popup-menu-icon',
         });
         this._copyButton = new St.Button({
-            style_class: 'button roompanel-icon-button',
+            style_class: 'button hacontrolpanel-icon-button',
             can_focus: true,
             reactive: true,
         });
@@ -253,7 +253,7 @@ export class ColorSection {
         const colorBody = new St.BoxLayout({
             vertical: false,
             x_expand: true,
-            style_class: 'roompanel-color-body',
+            style_class: 'hacontrolpanel-color-body',
         });
         colorBox.add_child(colorBody);
 
@@ -265,13 +265,13 @@ export class ColorSection {
         const colorRightCol = new St.BoxLayout({
             vertical: true,
             x_expand: true,
-            style_class: 'roompanel-color-right',
+            style_class: 'hacontrolpanel-color-right',
         });
         colorBody.add_child(colorRightCol);
 
         colorRightCol.add_child(new St.Label({
             text: 'History',
-            style_class: 'roompanel-history-title',
+            style_class: 'hacontrolpanel-history-title',
         }));
 
         this._historyView = new ColorHistoryView(hex => this._applyHistoryColor(hex));
@@ -281,7 +281,7 @@ export class ColorSection {
         this._chipRow = new St.BoxLayout({
             vertical: false,
             x_expand: true,
-            style_class: 'roompanel-chip-row',
+            style_class: 'hacontrolpanel-chip-row',
         });
         colorBox.add_child(this._chipRow);
 
@@ -435,7 +435,7 @@ export class ColorSection {
         for (const entityId of all) {
             const isActive = selected.length === 0 || selected.includes(entityId);
             const chip = new St.Button({
-                style_class: 'roompanel-chip' + (isActive ? ' roompanel-chip-active' : ''),
+                style_class: 'hacontrolpanel-chip' + (isActive ? ' hacontrolpanel-chip-active' : ''),
                 can_focus: true,
                 reactive: true,
                 x_expand: true,
@@ -512,14 +512,14 @@ export class ColorSection {
             : 'Screen Sync disabled. Click to enable dynamic screen sync.';
 
         if (enabled)
-            this._screenSyncToggle.add_style_class_name('roompanel-screen-sync-toggle-active');
+            this._screenSyncToggle.add_style_class_name('hacontrolpanel-screen-sync-toggle-active');
         else
-            this._screenSyncToggle.remove_style_class_name('roompanel-screen-sync-toggle-active');
+            this._screenSyncToggle.remove_style_class_name('hacontrolpanel-screen-sync-toggle-active');
 
         if (enabled)
-            this._screenSyncToggleLabel.add_style_class_name('roompanel-screen-sync-toggle-label-active');
+            this._screenSyncToggleLabel.add_style_class_name('hacontrolpanel-screen-sync-toggle-label-active');
         else
-            this._screenSyncToggleLabel.remove_style_class_name('roompanel-screen-sync-toggle-label-active');
+            this._screenSyncToggleLabel.remove_style_class_name('hacontrolpanel-screen-sync-toggle-label-active');
     }
 
     _toggleScreenSync() {
@@ -567,7 +567,7 @@ export class ColorSection {
     _startColorEdit() {
         this._colorValue.visible = false;
         this._colorEntry.set_text(this._colorValue.text);
-        this._colorEntry.remove_style_class_name('roompanel-color-entry-invalid');
+        this._colorEntry.remove_style_class_name('hacontrolpanel-color-entry-invalid');
         this._colorEntry.visible = true;
         this._colorEntry.grab_key_focus();
         this._colorEntry.get_clutter_text().set_selection(0, -1);
@@ -576,7 +576,7 @@ export class ColorSection {
     _commitColorEdit() {
         const hex = this._parseHex(this._colorEntry.get_text());
         if (!hex) {
-            this._colorEntry.add_style_class_name('roompanel-color-entry-invalid');
+            this._colorEntry.add_style_class_name('hacontrolpanel-color-entry-invalid');
             return; // stay open so user can fix the input
         }
         this._colorEntry.visible = false;

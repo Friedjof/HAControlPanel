@@ -6,13 +6,13 @@ import { ActionButton } from './actionButton.js';
 import { ColorSection } from './colorSection.js';
 import { SliderSection } from './sliderSection.js';
 import { SensorSection } from './sensorSection.js';
-import { readButtonsConfig, readSliderConfigs } from '../lib/configAdapters.js';
+import { readButtonsConfig, readSliderConfigs } from '../lib/config/configAdapters.js';
 
 /**
  * The dropdown menu content.
  * Orchestrates ColorSection, SliderSection, action buttons, and live-sync.
  */
-export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
+export class HaControlPanelMenu extends PopupMenu.PopupMenuSection {
     constructor(settings, haClient, openPrefs) {
         super();
 
@@ -50,18 +50,18 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
     _buildUI() {
         // ── Settings row ──────────────────────────────────────────────
         this._settingsItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
-        this._settingsItem.add_style_class_name('roompanel-settings-item');
+        this._settingsItem.add_style_class_name('hacontrolpanel-settings-item');
         this.addMenuItem(this._settingsItem);
 
         const headerRow = new St.BoxLayout({
             vertical: false,
             x_expand: true,
-            style_class: 'roompanel-header-row',
+            style_class: 'hacontrolpanel-header-row',
         });
         this._settingsItem.add_child(headerRow);
 
         const settingsBtn = new St.Button({
-            style_class: 'roompanel-settings-btn',
+            style_class: 'hacontrolpanel-settings-btn',
             can_focus: true,
             reactive: true,
         });
@@ -69,17 +69,17 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
 
         const settingsBtnInner = new St.BoxLayout({
             vertical: false,
-            style_class: 'roompanel-settings-btn-inner',
+            style_class: 'hacontrolpanel-settings-btn-inner',
         });
         settingsBtn.set_child(settingsBtnInner);
 
         settingsBtnInner.add_child(new St.Icon({
             icon_name: 'preferences-system-symbolic',
-            style_class: 'roompanel-settings-icon',
+            style_class: 'hacontrolpanel-settings-icon',
         }));
 
         this._domainLabel = new St.Label({
-            style_class: 'roompanel-settings-domain',
+            style_class: 'hacontrolpanel-settings-domain',
             y_align: Clutter.ActorAlign.CENTER,
         });
         settingsBtnInner.add_child(this._domainLabel);
@@ -91,7 +91,7 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
 
         this._pageSwitcher = new St.BoxLayout({
             vertical: false,
-            style_class: 'roompanel-page-switcher',
+            style_class: 'hacontrolpanel-page-switcher',
             x_align: Clutter.ActorAlign.END,
         });
         headerRow.add_child(this._pageSwitcher);
@@ -104,7 +104,7 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
 
         this._pageLabel = new St.Label({
             text: 'Actions',
-            style_class: 'roompanel-page-label',
+            style_class: 'hacontrolpanel-page-label',
             y_align: Clutter.ActorAlign.CENTER,
         });
         this._pageSwitcher.add_child(this._pageLabel);
@@ -134,8 +134,8 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
             vertical: true,
             x_expand: true,
         });
-        this._buttonsBox.add_style_class_name('roompanel-menu');
-        this._buttonsBox.add_style_class_name('roompanel-buttons-box');
+        this._buttonsBox.add_style_class_name('hacontrolpanel-menu');
+        this._buttonsBox.add_style_class_name('hacontrolpanel-buttons-box');
         this._buttonsItem.add_child(this._buttonsBox);
 
         this._rebuildButtons();
@@ -145,11 +145,11 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
     _createPageButton(iconName, onClick) {
         const icon = new St.Icon({
             icon_name: iconName,
-            style_class: 'roompanel-page-button-icon',
+            style_class: 'hacontrolpanel-page-button-icon',
         });
 
         const button = new St.Button({
-            style_class: 'roompanel-page-button',
+            style_class: 'hacontrolpanel-page-button',
             can_focus: true,
             reactive: true,
             child: icon,
@@ -213,11 +213,11 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
         this._pageLabel.text = isActions ? 'Actions' : 'Sensors';
 
         if (isActions) {
-            this._actionsPageBtn.add_style_class_name('roompanel-page-button-active');
-            this._sensorsPageBtn.remove_style_class_name('roompanel-page-button-active');
+            this._actionsPageBtn.add_style_class_name('hacontrolpanel-page-button-active');
+            this._sensorsPageBtn.remove_style_class_name('hacontrolpanel-page-button-active');
         } else {
-            this._sensorsPageBtn.add_style_class_name('roompanel-page-button-active');
-            this._actionsPageBtn.remove_style_class_name('roompanel-page-button-active');
+            this._sensorsPageBtn.add_style_class_name('hacontrolpanel-page-button-active');
+            this._actionsPageBtn.remove_style_class_name('hacontrolpanel-page-button-active');
         }
     }
 
@@ -261,7 +261,7 @@ export class RoomPanelMenu extends PopupMenu.PopupMenuSection {
             const row = new St.BoxLayout({
                 vertical: false,
                 x_expand: true,
-                style_class: 'roompanel-button-row',
+                style_class: 'hacontrolpanel-button-row',
             });
 
             for (const config of slice.slice(i, i + 2))

@@ -1,4 +1,4 @@
-import { hexToRgb } from '../lib/colorHistory.js';
+import { hexToRgb } from '../lib/sync/colorHistory.js';
 import { rgbToHex } from './colorWheel.js';
 
 export function entityMatchesDomain(entityId, domain) {

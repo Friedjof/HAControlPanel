@@ -1,14 +1,14 @@
 import GLib from 'gi://GLib';
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
-import { HaClient } from './lib/haClient.js';
-import { ScreenSyncController } from './lib/screenSyncController.js';
-import { BrowserBridgeServer } from './lib/browserBridgeServer.js';
-import { RoomPanelIndicator } from './ui/panelIndicator.js';
-import { serialize } from './lib/yaml.js';
-import { getResolvedBackupPath, settingsToObject } from './lib/backup.js';
+import { HaClient } from './lib/ha/haClient.js';
+import { ScreenSyncController } from './lib/sync/screenSyncController.js';
+import { BrowserBridgeServer } from './lib/bridge/browserBridgeServer.js';
+import { HaControlPanelIndicator } from './ui/panelIndicator.js';
+import { serialize } from './lib/config/yaml.js';
+import { getResolvedBackupPath, settingsToObject } from './lib/config/backup.js';
 
-export default class RoomPanelExtension extends Extension {
+export default class HaControlPanelExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
         this._haClient = new HaClient();
@@ -52,7 +52,7 @@ export default class RoomPanelExtension extends Extension {
     }
 
     _createIndicator() {
-        this._indicator = new RoomPanelIndicator(
+        this._indicator = new HaControlPanelIndicator(
             this._settings, this._haClient, () => void this._openPreferencesSafely()
         );
         Main.panel.addToStatusArea(this.uuid, this._indicator);

@@ -2,14 +2,14 @@ import St from 'gi://St';
 import GObject from 'gi://GObject';
 import Clutter from 'gi://Clutter';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
-import { RoomPanelMenu } from './panelMenu.js';
+import { HaControlPanelMenu } from './panelMenu.js';
 
 /**
  * The 🏠 button in the GNOME top bar.
  * Clicking it opens the HAControlPanel menu dropdown.
  */
-export const RoomPanelIndicator = GObject.registerClass(
-    class RoomPanelIndicator extends PanelMenu.Button {
+export const HaControlPanelIndicator = GObject.registerClass(
+    class HaControlPanelIndicator extends PanelMenu.Button {
         _init(settings, haClient, openPrefs) {
             super._init(0.0, 'HAControlPanel');
 
@@ -25,7 +25,7 @@ export const RoomPanelIndicator = GObject.registerClass(
             this.add_child(icon);
 
             // Build the dropdown content
-            this._roomMenu = new RoomPanelMenu(settings, haClient, openPrefs);
+            this._roomMenu = new HaControlPanelMenu(settings, haClient, openPrefs);
             this.menu.addMenuItem(this._roomMenu);
         }
 

@@ -1,5 +1,5 @@
 import GObject from 'gi://GObject';
-import { HaClient } from '../lib/haClient.js';
+import { HaClient } from '../lib/ha/haClient.js';
 
 function getServiceCount(services) {
     if (Array.isArray(services))

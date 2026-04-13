@@ -56,7 +56,7 @@ export const ActionButton = GObject.registerClass(
 class ActionButton extends St.Button {
     _init(config, haClient) {
         super._init({
-            style_class: 'roompanel-action-button button',
+            style_class: 'hacontrolpanel-action-button button',
             can_focus: true,
             reactive: true,
             x_expand: true,
@@ -70,17 +70,17 @@ class ActionButton extends St.Button {
             vertical: false,
             x_expand: true,
             y_expand: true,
-            style_class: 'roompanel-action-button-shell',
+            style_class: 'hacontrolpanel-action-button-shell',
         });
 
         this._iconRail = new St.Bin({
-            style_class: 'roompanel-action-button-rail',
+            style_class: 'hacontrolpanel-action-button-rail',
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
         });
         this._iconLabel = new St.Label({
             text: config.icon ?? '•',
-            style_class: 'roompanel-action-button-icon',
+            style_class: 'hacontrolpanel-action-button-icon',
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
         });
@@ -91,14 +91,14 @@ class ActionButton extends St.Button {
             vertical: true,
             x_expand: true,
             y_align: Clutter.ActorAlign.CENTER,
-            style_class: 'roompanel-action-button-box',
+            style_class: 'hacontrolpanel-action-button-box',
         });
         shell.add_child(content);
 
         const titleText = config.label?.trim() || _formatService(config.service) || 'Action';
         this._titleLabel = new St.Label({
             text: titleText,
-            style_class: 'roompanel-action-button-label',
+            style_class: 'hacontrolpanel-action-button-label',
             x_align: Clutter.ActorAlign.START,
             x_expand: true,
         });
@@ -109,7 +109,7 @@ class ActionButton extends St.Button {
         const metaRow = new St.BoxLayout({
             vertical: false,
             x_expand: true,
-            style_class: 'roompanel-action-button-meta-row',
+            style_class: 'hacontrolpanel-action-button-meta-row',
         });
         content.add_child(metaRow);
 
@@ -118,7 +118,7 @@ class ActionButton extends St.Button {
 
         this._entityLabel = new St.Label({
             text: entityText,
-            style_class: 'roompanel-action-button-meta roompanel-action-button-meta-entity',
+            style_class: 'hacontrolpanel-action-button-meta hacontrolpanel-action-button-meta-entity',
             x_expand: true,
             x_align: Clutter.ActorAlign.START,
         });
@@ -128,7 +128,7 @@ class ActionButton extends St.Button {
 
         this._serviceLabel = new St.Label({
             text: serviceText,
-            style_class: 'roompanel-action-button-meta roompanel-action-button-meta-service',
+            style_class: 'hacontrolpanel-action-button-meta hacontrolpanel-action-button-meta-service',
             x_align: Clutter.ActorAlign.END,
             y_align: Clutter.ActorAlign.CENTER,
         });
@@ -137,7 +137,7 @@ class ActionButton extends St.Button {
         if (entityText && serviceText) {
             metaRow.add_child(new St.Label({
                 text: '·',
-                style_class: 'roompanel-action-button-meta roompanel-action-button-meta-separator',
+                style_class: 'hacontrolpanel-action-button-meta hacontrolpanel-action-button-meta-separator',
                 y_align: Clutter.ActorAlign.CENTER,
             }));
         }

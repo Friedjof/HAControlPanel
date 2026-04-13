@@ -31,7 +31,7 @@ export const DimmerSlider = GObject.registerClass({
 }, class DimmerSlider extends St.DrawingArea {
     _init(params = {}) {
         super._init({
-            style_class: 'roompanel-dimmer-slider',
+            style_class: 'hacontrolpanel-dimmer-slider',
             reactive: true,
             can_focus: true,
             track_hover: true,
