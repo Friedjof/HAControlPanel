@@ -24,13 +24,14 @@ jobs:
             renamed_prefix: dist/hacontrolpanel@friedjof.github.io
             renamed_suffix: .shell-extension.zip
             needs_glib: true
+            needs_node: false
+            sign_firefox: false
           - artifact_prefix: hacontrolpanel-firefox-extension
-            target: pack-firefox
-            bundle_path: dist/hacontrolpanel-bridge.firefox-extension.xpi
             renamed_prefix: dist/hacontrolpanel-bridge
             renamed_suffix: .firefox-extension.xpi
             needs_glib: false
-
+            needs_node: true
+            sign_firefox: true
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -39,23 +40,67 @@ jobs:
         id: meta
         run: echo "short_sha=${GITHUB_SHA::7}" >> "${GITHUB_OUTPUT}"
 
+      - name: Set up Node.js
+        if: ${{ matrix.needs_node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
       - name: Install build dependencies
         if: ${{ matrix.needs_glib }}
         run: |
           sudo apt-get update
           sudo apt-get install -y libglib2.0-bin
 
-      - name: Build extension bundle
+      - name: Build GNOME extension bundle
+        if: ${{ !matrix.sign_firefox }}
         run: make ${{ matrix.target }}
+
+      - name: Build Firefox Browser Bridge bundle
+        if: ${{ matrix.sign_firefox }}
+        id: firefox
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          if [ -n "${WEB_EXT_API_KEY}" ] && [ -n "${WEB_EXT_API_SECRET}" ]; then
+            rm -f dist/*.xpi
+            npx --yes web-ext@8 sign \
+              --channel=unlisted \
+              --source-dir=firefox-extension \
+              --artifacts-dir=dist
+            bundle="$(find dist -maxdepth 1 -type f -name '*.xpi' | head -n1)"
+            if [ -z "${bundle}" ]; then
+              echo "Signed Firefox .xpi not found" >&2
+              exit 1
+            fi
+            echo "signed=true" >> "${GITHUB_OUTPUT}"
+          else
+            make pack-firefox
+            bundle="dist/hacontrolpanel-bridge.firefox-extension.xpi"
+            echo "signed=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+          echo "bundle_path=${bundle}" >> "${GITHUB_OUTPUT}"
 
       - name: Append commit hash to bundle name
         id: bundle
         run: |
           short_sha="${{ steps.meta.outputs.short_sha }}"
-          bundle="${{ matrix.bundle_path }}"
+          if [ "${{ matrix.sign_firefox }}" = "true" ]; then
+            bundle="${{ steps.firefox.outputs.bundle_path }}"
+          else
+            bundle="${{ matrix.bundle_path }}"
+          fi
           renamed_bundle="${{ matrix.renamed_prefix }}-${short_sha}${{ matrix.renamed_suffix }}"
           mv "${bundle}" "${renamed_bundle}"
-          echo "artifact_name=${{ matrix.artifact_prefix }}-${short_sha}" >> "${GITHUB_OUTPUT}"
+          if [ "${{ matrix.sign_firefox }}" = "true" ] && [ "${{ steps.firefox.outputs.signed }}" = "true" ]; then
+            echo "artifact_name=${{ matrix.artifact_prefix }}-signed-${short_sha}" >> "${GITHUB_OUTPUT}"
+          elif [ "${{ matrix.sign_firefox }}" = "true" ]; then
+            echo "artifact_name=${{ matrix.artifact_prefix }}-unsigned-${short_sha}" >> "${GITHUB_OUTPUT}"
+          else
+            echo "artifact_name=${{ matrix.artifact_prefix }}-${short_sha}" >> "${GITHUB_OUTPUT}"
+          fi
           echo "bundle_path=${renamed_bundle}" >> "${GITHUB_OUTPUT}"
 
       - name: Upload extension bundle
