@@ -9,7 +9,7 @@ function clamp(value, min, max) {
 function getHistoryPath() {
     return GLib.build_filenamev([
         GLib.get_user_state_dir(),
-        'roompanel',
+        'hacontrolpanel',
         'color-history.json',
     ]);
 }

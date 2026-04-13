@@ -5,7 +5,7 @@ export function getDefaultBackupPath() {
     return GLib.build_filenamev([
         GLib.get_home_dir(),
         '.config',
-        'roompanel',
+        'hacontrolpanel',
         'backup.yaml',
     ]);
 }
