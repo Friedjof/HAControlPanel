@@ -5,10 +5,43 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { ColorWheel, rgbToHex } from './colorWheel.js';
 import { hexToRgb, loadColorHistory, pushColorToHistory, saveColorHistory } from '../lib/sync/colorHistory.js';
 import {
-    entityMatchesDomain, buildColorPreviewStyle, darkenHex, formatEntityLabel,
+    buildColorPreviewStyle, darkenHex, formatEntityLabel,
 } from './menuHelpers.js';
 import { LiveValueSync } from './liveValueSync.js';
 import { ColorHistoryView } from './colorHistoryView.js';
+
+const COLOR_VALUE_FORMATS = new Set(['hex', 'hex-no-hash', 'rgb', 'rgb-csv']);
+
+function parseColorAttribute(rawAttribute) {
+    const raw = String(rawAttribute ?? '').trim();
+    if (!raw)
+        return { name: 'rgb_color', format: 'rgb' };
+
+    const [namePart, formatPart] = raw.split(':', 2);
+    const name = namePart.trim();
+    const explicitFormat = String(formatPart ?? '').trim().toLowerCase();
+    const format = COLOR_VALUE_FORMATS.has(explicitFormat)
+        ? explicitFormat
+        : (name === 'rgb_color' ? 'rgb' : 'hex');
+
+    return { name, format };
+}
+
+function formatColorServiceValue(rgb, format) {
+    const hex = rgbToHex(rgb);
+
+    switch (format) {
+    case 'hex-no-hash':
+        return hex.slice(1);
+    case 'rgb-csv':
+        return rgb.slice(0, 3).map(v => Math.max(0, Math.min(255, Math.round(Number(v) || 0)))).join(',');
+    case 'rgb':
+        return rgb.slice(0, 3).map(v => Math.max(0, Math.min(255, Math.round(Number(v) || 0))));
+    case 'hex':
+    default:
+        return hex;
+    }
+}
 
 /**
  * The color-picker section of the panel menu.
@@ -675,28 +708,26 @@ export class ColorSection {
     async _sendColor(rgb) {
         const targets = this._getTargetColorEntities();
         const service = this._settings.get_string('color-service');
-        const attribute = this._settings.get_string('color-attribute');
         if (targets.length === 0 || !service) return;
 
         this._markUserCommand();
 
         const [domain, svc] = service.split('.');
-        const validTargets = targets.filter(e => entityMatchesDomain(e, domain));
-        if (validTargets.length === 0) {
-            console.error(`[HAControlPanel] Color call skipped: no entities match domain "${domain}"`);
+        const { name: attribute, format } = parseColorAttribute(this._settings.get_string('color-attribute'));
+        if (!domain || !svc || !attribute)
             return;
-        }
 
         const hex = rgbToHex(rgb);
-        for (const entityId of validTargets)
+        const value = formatColorServiceValue(rgb, format);
+        for (const entityId of targets)
             this._colorValues[entityId] = hex;
         this._refreshColorChipStyles();
 
         try {
-            for (const entityId of validTargets) {
+            for (const entityId of targets) {
                 await this._haClient.callService(domain, svc, {
                     entity_id: entityId,
-                    [attribute]: rgb,
+                    [attribute]: value,
                 });
             }
         } catch (e) {

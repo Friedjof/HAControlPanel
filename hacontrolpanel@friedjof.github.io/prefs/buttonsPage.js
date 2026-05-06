@@ -45,6 +45,8 @@ class ButtonsPage extends Adw.PreferencesPage {
             title: 'Service Data Attribute',
             text: settings.get_string('color-attribute'),
         });
+        this._colorAttributeRow.tooltip_text =
+            'Use rgb_color for [r,g,b], value for #rrggbb, or suffix with :hex, :hex-no-hash, :rgb, :rgb-csv';
         colorGroup.add(this._colorAttributeRow);
         this._colorAttributeRow.connect('changed', () =>
             settings.set_string('color-attribute', this._colorAttributeRow.text));

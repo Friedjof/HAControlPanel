@@ -39,7 +39,7 @@
     <key name="color-attribute" type="s">
       <default>"rgb_color"</default>
       <summary>Color Picker Service Attribute</summary>
-      <description>Service data attribute for color, e.g. rgb_color</description>
+      <description>Service data attribute for color. rgb_color sends [r,g,b], other names send #rrggbb by default. Supported suffixes: :hex, :hex-no-hash, :rgb, :rgb-csv</description>
     </key>
 
     <!-- Screen Sync -->
