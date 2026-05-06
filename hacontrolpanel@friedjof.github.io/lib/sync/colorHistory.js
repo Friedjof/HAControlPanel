@@ -1,4 +1,7 @@
 import GLib from 'gi://GLib';
+import Gio from 'gi://Gio';
+
+Gio._promisify(Gio.File.prototype, 'load_contents_async', 'load_contents_finish');
 
 const HISTORY_LIMIT = 8;
 
@@ -47,21 +50,23 @@ export function hexToRgb(color) {
     ];
 }
 
-export function loadColorHistory() {
+function normalizeHistoryEntries(entries) {
+    if (!Array.isArray(entries))
+        return [];
+
+    return entries
+        .map(normalizeHex)
+        .filter(Boolean)
+        .slice(0, HISTORY_LIMIT);
+}
+
+export async function loadColorHistory() {
+    const file = Gio.File.new_for_path(getHistoryPath());
+
     try {
-        const [ok, bytes] = GLib.file_get_contents(getHistoryPath());
-        if (!ok)
-            return [];
-
+        const [bytes] = await file.load_contents_async(null);
         const text = new TextDecoder().decode(bytes);
-        const parsed = JSON.parse(text);
-        if (!Array.isArray(parsed))
-            return [];
-
-        return parsed
-            .map(normalizeHex)
-            .filter(Boolean)
-            .slice(0, HISTORY_LIMIT);
+        return normalizeHistoryEntries(JSON.parse(text));
     } catch {
         return [];
     }

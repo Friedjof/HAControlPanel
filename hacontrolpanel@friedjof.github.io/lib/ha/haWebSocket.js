@@ -104,7 +104,6 @@ export class HaWebSocket {
                     try {
                         this._ws = this._getSession().websocket_connect_finish(result);
                     } catch (e) {
-                        console.error('[HAControlPanel] WS connect failed:', e.message);
                         this._wsScheduleReconnect();
                         return;
                     }
@@ -119,8 +118,8 @@ export class HaWebSocket {
                             this._wsHandleMessage(
                                 new TextDecoder('utf-8').decode(bytes.get_data())
                             );
-                        } catch (e) {
-                            console.error('[HAControlPanel] WS message parse error:', e.message);
+                        } catch {
+                            // Ignore malformed frames and keep the live channel open.
                         }
                     });
 
@@ -130,13 +129,10 @@ export class HaWebSocket {
                             this._wsScheduleReconnect();
                     });
 
-                    this._ws.connect('error', (_conn, err) => {
-                        console.error('[HAControlPanel] WS error:', err.message);
-                    });
+                    this._ws.connect('error', () => {});
                 }
             );
         } catch (e) {
-            console.error('[HAControlPanel] WS setup failed:', e.message);
             this._wsScheduleReconnect();
         }
     }
@@ -159,7 +155,6 @@ export class HaWebSocket {
                 break;
 
             case 'auth_invalid':
-                console.error('[HAControlPanel] WS: authentication rejected');
                 // Do not reconnect – wrong token won't fix itself
                 this._wsClose();
                 break;
@@ -169,8 +164,8 @@ export class HaWebSocket {
                     for (const callback of this._liveCallbacks) {
                         try {
                             callback(msg.event.data);
-                        } catch (e) {
-                            console.error('[HAControlPanel] WS callback failed:', e.message);
+                        } catch {
+                            // Keep dispatching to other live-state consumers.
                         }
                     }
                 }
@@ -184,8 +179,8 @@ export class HaWebSocket {
         if (!this._ws) return;
         try {
             this._ws.send_text(JSON.stringify(obj));
-        } catch (e) {
-            console.error('[HAControlPanel] WS send failed:', e.message);
+        } catch {
+            this._wsScheduleReconnect();
         }
     }
 

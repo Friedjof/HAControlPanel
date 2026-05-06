@@ -30,7 +30,8 @@ export class ColorSection {
         this._sync = new LiveValueSync(getSuppressUntil);
         this._colorSourceId = null;
         this._copyResetSourceId = null;
-        this._colorHistory = loadColorHistory();
+        this._destroyed = false;
+        this._colorHistory = [];
         this._entityNames = {};
         this._colorValues = {};
         this._currentColorHex = '#ffffff';
@@ -39,6 +40,7 @@ export class ColorSection {
         this._menuItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
         this._buildUI();
         this._connectSettings();
+        void this._loadColorHistory();
     }
 
     /** The PopupBaseMenuItem to add to the parent menu. */
@@ -107,6 +109,7 @@ export class ColorSection {
     }
 
     destroy() {
+        this._destroyed = true;
         if (this._settingsChangedId) {
             this._settings.disconnect(this._settingsChangedId);
             this._settingsChangedId = null;
@@ -598,6 +601,15 @@ export class ColorSection {
 
     _rebuildColorHistory() {
         this._historyView.rebuild(this._colorHistory);
+    }
+
+    async _loadColorHistory() {
+        const history = await loadColorHistory();
+        if (this._destroyed)
+            return;
+
+        this._colorHistory = history;
+        this._rebuildColorHistory();
     }
 
     _rememberColor(rgb) {
