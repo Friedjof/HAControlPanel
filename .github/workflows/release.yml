@@ -40,7 +40,8 @@ jobs:
           grep -q "lib/bridge/browserBridgeServer.js" /tmp/hacontrolpanel-zip-list.txt
           grep -q "lib/sync/screenSyncController.js" /tmp/hacontrolpanel-zip-list.txt
           grep -q "ui/panelIndicator.js" /tmp/hacontrolpanel-zip-list.txt
-          grep -q "schemas/gschemas.compiled" /tmp/hacontrolpanel-zip-list.txt
+          grep -q "schemas/org.gnome.shell.extensions.hacontrolpanel.gschema.xml" /tmp/hacontrolpanel-zip-list.txt
+          ! grep -q "schemas/gschemas.compiled" /tmp/hacontrolpanel-zip-list.txt
 
       - name: Sign Firefox Browser Bridge
         env:

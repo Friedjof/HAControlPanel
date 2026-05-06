@@ -56,7 +56,7 @@ pack: build-css
 		lib \
 		prefs \
 		ui \
-		schemas/
+		$(SCHEMA)
 	@echo "Packed $(ZIP)"
 
 pack-firefox:
