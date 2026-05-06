@@ -28,13 +28,19 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libglib2.0-bin
+          sudo apt-get install -y libglib2.0-bin unzip zip
 
       - name: Build GNOME extension bundle
         run: |
           make pack
-          mv dist/hacontrolpanel@friedjof.github.io.shell-extension.zip \
-            dist/hacontrolpanel@friedjof.github.io-${GITHUB_REF_NAME}.shell-extension.zip
+          ZIP_NAME="hacontrolpanel@friedjof.github.io-${GITHUB_REF_NAME}.shell-extension.zip"
+          mv dist/hacontrolpanel@friedjof.github.io.shell-extension.zip "dist/${ZIP_NAME}"
+          unzip -l "dist/${ZIP_NAME}" | tee /tmp/hacontrolpanel-zip-list.txt
+          grep -q "lib/ha/haClient.js" /tmp/hacontrolpanel-zip-list.txt
+          grep -q "lib/bridge/browserBridgeServer.js" /tmp/hacontrolpanel-zip-list.txt
+          grep -q "lib/sync/screenSyncController.js" /tmp/hacontrolpanel-zip-list.txt
+          grep -q "ui/panelIndicator.js" /tmp/hacontrolpanel-zip-list.txt
+          grep -q "schemas/gschemas.compiled" /tmp/hacontrolpanel-zip-list.txt
 
       - name: Sign Firefox Browser Bridge
         env:
@@ -95,15 +101,24 @@ jobs:
             "dist/hacontrolpanel-bridge-${GITHUB_REF_NAME}.firefox-extension.xpi"
 
       - name: Upload to extensions.gnome.org
-        uses: murar8/gnome-extensions-action@0.1.1
-        with:
-          source-dir: ./hacontrolpanel@friedjof.github.io
-          output-dir: ./dist
-          schema: ./schemas/org.gnome.shell.extensions.hacontrolpanel.gschema.xml
-          username: ${{ secrets.EGO_USERNAME }}
-          password: ${{ secrets.EGO_PASSWORD }}
-          accept-tos: true
-          force: true
+        env:
+          EGO_USERNAME: ${{ secrets.EGO_USERNAME }}
+          EGO_PASSWORD: ${{ secrets.EGO_PASSWORD }}
+        run: |
+          if [ -z "${EGO_USERNAME}" ] || [ -z "${EGO_PASSWORD}" ]; then
+            echo "EGO credentials are missing" >&2
+            exit 1
+          fi
+
+          ZIP_NAME="hacontrolpanel@friedjof.github.io-${GITHUB_REF_NAME}.shell-extension.zip"
+          docker run --rm \
+            -e EGO_USERNAME \
+            -e EGO_PASSWORD \
+            -e ZIP_NAME="${ZIP_NAME}" \
+            -v "${PWD}/dist:/dist:ro" \
+            --entrypoint /bin/bash \
+            ghcr.io/murar8/gnome-extensions-action:latest \
+            -c 'gnome-extensions upload --user "$EGO_USERNAME" --password "$EGO_PASSWORD" --accept-tos "/dist/${ZIP_NAME}"'
 
       - name: Create GitHub release
         env:
