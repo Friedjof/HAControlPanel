@@ -116,6 +116,28 @@ The preferences window is split into focused pages:
 
 The backup validator checks for broken or suspicious values before import or sync, including empty required entity IDs in panel configuration.
 
+### Color picker service payloads
+
+The color picker can call any Home Assistant service, not only `light.turn_on`. Configure this in **Preferences → Actions → Color Picker**:
+
+| Setting | Example | Result |
+|---|---|---|
+| Service | `light.turn_on` | Calls `/api/services/light/turn_on` |
+| Service Data Attribute | `rgb_color` | Sends `[255, 0, 0]` |
+| Service | `input_text.set_value` | Calls `/api/services/input_text/set_value` |
+| Service Data Attribute | `value` | Sends `"#ff0000"` |
+
+The default format depends on the attribute name: `rgb_color` sends an RGB array, while any other attribute sends a `#rrggbb` string. Add a suffix to force a format:
+
+| Attribute syntax | Sent value |
+|---|---|
+| `value:hex` | `"#ff0000"` |
+| `value:hex-no-hash` | `"ff0000"` |
+| `value:rgb` | `[255, 0, 0]` |
+| `value:rgb-csv` | `"255,0,0"` |
+
+Each configured color entity is still sent as `entity_id` in the same service payload.
+
 ## 🛠️ Development
 
 ### Repository layout

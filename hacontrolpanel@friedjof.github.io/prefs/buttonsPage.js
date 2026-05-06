@@ -51,6 +51,12 @@ class ButtonsPage extends Adw.PreferencesPage {
         this._colorAttributeRow.connect('changed', () =>
             settings.set_string('color-attribute', this._colorAttributeRow.text));
 
+        colorGroup.add(new Adw.ActionRow({
+            title: 'Color payload format',
+            subtitle: 'rgb_color sends an RGB array. Any other attribute, such as value, sends a #rrggbb string. Add :hex, :hex-no-hash, :rgb, or :rgb-csv to force a format, for example value:hex-no-hash.',
+            sensitive: false,
+        }));
+
         // ── Color Picker Entities Sub-group ───────────────────────────
         this._colorEntitiesGroup = new Adw.PreferencesGroup({
             title: 'Color Picker Entities',
